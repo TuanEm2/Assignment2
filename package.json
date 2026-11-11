@@ -10,6 +10,10 @@
     "dev:api": "npm run start:dev -w apps/api",
     "build:web": "npm run build -w apps/web",
     "build:api": "npm run build -w apps/api",
+    "db:generate": "npm run db:generate -w apps/api",
+    "db:validate": "npm run db:validate -w apps/api",
+    "db:migrate": "npm run db:migrate -w apps/api",
+    "db:seed": "npm run db:seed -w apps/api",
     "lint": "npm run lint --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "test:cart": "node --experimental-strip-types --test tests/cart-calculations.test.mjs"

@@ -1,0 +1,44 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum SizeName {
+  S
+  M
+  L
+}
+
+model Product {
+  id       String           @id @default(uuid()) @db.Uuid
+  slug     String           @unique
+  name     String
+  price    Int
+  imageUrl String
+  sizes    ProductSize[]
+  toppings ProductTopping[]
+}
+
+model ProductSize {
+  id        String   @id @default(uuid()) @db.Uuid
+  productId String   @db.Uuid
+  name      SizeName
+  price     Int
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, name])
+}
+
+model ProductTopping {
+  id        String  @id @default(uuid()) @db.Uuid
+  productId String  @db.Uuid
+  name      String
+  price     Int
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, name])
+}
