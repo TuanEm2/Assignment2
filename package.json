@@ -11,6 +11,7 @@
     "build:web": "npm run build -w apps/web",
     "build:api": "npm run build -w apps/api",
     "lint": "npm run lint --workspaces --if-present",
-    "test": "npm run test --workspaces --if-present"
+    "test": "npm run test --workspaces --if-present",
+    "test:cart": "node --experimental-strip-types --test tests/cart-calculations.test.mjs"
   }
 }
