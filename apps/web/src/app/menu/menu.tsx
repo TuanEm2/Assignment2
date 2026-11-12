@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import './menu.css';
+import { getProductsUrl } from '../../lib/products/url';
 
 export interface Product {
   id: string;
@@ -121,11 +122,7 @@ export const getProducts: Loader = async (signal) => {
     throw new Error('Nguồn menu phải là demo hoặc api.');
   }
 
-  const base = (
-    process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'
-  ).replace(/\/+$/, '');
-
-  const response = await fetch(`${base}/products`, {
+  const response = await fetch(getProductsUrl(), {
     signal,
     cache: 'no-store',
   });

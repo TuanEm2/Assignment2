@@ -1,4 +1,5 @@
 import type { CartOption } from '@/lib/cart/types';
+import { getProductsUrl } from './url';
 
 export interface ProductDetail {
   id: string;
@@ -42,14 +43,32 @@ export function parseProductDetail(value: unknown): ProductDetail {
     imageUrl: r.imageUrl, sizes: options(r.sizes), toppings: options(r.toppings) };
 }
 
-export async function getProductDetail(id: string, signal: AbortSignal): Promise<ProductDetail> {
-  const base = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000').replace(/\/+$/, '');
-  const api = base.endsWith('/api') ? base : `${base}/api`;
-  const response = await fetch(`${api}/products/${encodeURIComponent(id)}`, { signal, cache: 'no-store' });
-  if (response.status === 404) throw new Error('Không tìm thấy đồ uống.');
-  if (response.status === 400) throw new Error('Mã đồ uống không hợp lệ.');
-  if (!response.ok) throw new Error('Không tải được đồ uống. Vui lòng thử lại.');
+export async function getProductDetail(
+  id: string,
+  signal: AbortSignal,
+): Promise<ProductDetail> {
+  const response = await fetch(getProductsUrl(id), {
+    signal,
+    cache: 'no-store',
+  });
+
+  if (response.status === 404) {
+    throw new Error('Không tìm thấy đồ uống.');
+  }
+
+  if (response.status === 400) {
+    throw new Error('Mã đồ uống không hợp lệ.');
+  }
+
+  if (!response.ok) {
+    throw new Error('Không tải được đồ uống. Vui lòng thử lại.');
+  }
+
   const product = parseProductDetail(await response.json());
-  if (product.id !== id) throw new Error('API trả về sai sản phẩm.');
+
+  if (product.id !== id) {
+    throw new Error('API trả về sai sản phẩm.');
+  }
+
   return product;
 }
