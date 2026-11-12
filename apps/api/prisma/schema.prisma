@@ -26,22 +26,24 @@ model Product {
 }
 
 model ProductSize {
-  id         String      @id @default(uuid()) @db.Uuid
-  productId  String      @db.Uuid
+  id         String                  @id @default(uuid()) @db.Uuid
+  productId  String                  @db.Uuid
   name       SizeName
   price      Int
-  product    Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product    Product                 @relation(fields: [productId], references: [id], onDelete: Cascade)
   orderItems OrderItem[]
+  recipe     ProductSizeIngredient[]
 
   @@unique([productId, name])
 }
 
 model ProductTopping {
-  id        String  @id @default(uuid()) @db.Uuid
-  productId String  @db.Uuid
+  id        String                     @id @default(uuid()) @db.Uuid
+  productId String                     @db.Uuid
   name      String
   price     Int
-  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product   Product                    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  recipe    ProductToppingIngredient[]
 
   @@unique([productId, name])
 }
@@ -82,6 +84,7 @@ model User {
   orders       Order[]
 }
 
+/// Tồn theo sản phẩm từ bản cũ. Kho nguyên liệu dùng Ingredient.stock.
 model Stock {
   productId String  @id @db.Uuid
   quantity  Int     @default(0)
@@ -89,21 +92,74 @@ model Stock {
   product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 }
 
+enum IngredientUnit {
+  G
+  ML
+  PIECE
+}
+
+model Ingredient {
+  id             String                     @id @default(uuid()) @db.Uuid
+  code           String                     @unique
+  name           String
+  unit           IngredientUnit
+  stock          Int                        @default(0)
+  version        Int                        @default(0)
+  sizeRecipes    ProductSizeIngredient[]
+  toppingRecipes ProductToppingIngredient[]
+  orderUsages    OrderIngredient[]
+}
+
+model ProductSizeIngredient {
+  sizeId       String      @db.Uuid
+  ingredientId String      @db.Uuid
+  quantity     Int
+  size         ProductSize @relation(fields: [sizeId], references: [id], onDelete: Cascade)
+  ingredient   Ingredient  @relation(fields: [ingredientId], references: [id], onDelete: Restrict)
+
+  @@id([sizeId, ingredientId])
+  @@index([ingredientId])
+}
+
+model ProductToppingIngredient {
+  toppingId    String         @db.Uuid
+  ingredientId String         @db.Uuid
+  quantity     Int
+  topping      ProductTopping @relation(fields: [toppingId], references: [id], onDelete: Cascade)
+  ingredient   Ingredient     @relation(fields: [ingredientId], references: [id], onDelete: Restrict)
+
+  @@id([toppingId, ingredientId])
+  @@index([ingredientId])
+}
+
 model Order {
-  id             String           @id @default(uuid()) @db.Uuid
-  userId         String           @db.Uuid
-  idempotencyKey String?
-  status         OrderStatus      @default(PENDING)
-  total          Int
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
-  user           User             @relation(fields: [userId], references: [id], onDelete: Restrict)
-  items          OrderItem[]
-  payment        Payment?
-  attempts       PaymentAttempt[]
+  id               String            @id @default(uuid()) @db.Uuid
+  userId           String            @db.Uuid
+  idempotencyKey   String?
+  status           OrderStatus       @default(PENDING)
+  total            Int
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  user             User              @relation(fields: [userId], references: [id], onDelete: Restrict)
+  items            OrderItem[]
+  payment          Payment?
+  attempts         PaymentAttempt[]
+  ingredientUsages OrderIngredient[]
 
   @@unique([userId, idempotencyKey])
   @@index([userId, createdAt])
+}
+
+/// Tổng lượng nguyên liệu đã giữ cho đơn, theo đơn vị gốc của Ingredient.
+model OrderIngredient {
+  orderId      String     @db.Uuid
+  ingredientId String     @db.Uuid
+  quantity     Int
+  order        Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Restrict)
+
+  @@id([orderId, ingredientId])
+  @@index([ingredientId])
 }
 
 model OrderItem {
