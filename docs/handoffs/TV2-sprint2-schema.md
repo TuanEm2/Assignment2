@@ -43,11 +43,11 @@ Khi tạo đơn nhiều món, cộng lượng cần dùng theo từng mã nguyê
 
 ## Điểm nối giữa OrdersService và InventoryService
 
-Ở commit TV3 `f80022c`, OrdersService tạo đơn rồi gọi `options.reserveStock(tx, stockRequirements(items))` trong cùng transaction. Hàm `stockRequirements` hiện gộp số lượng theo `productId`, nên các lựa chọn size và topping bị mất trước khi sang bước giữ kho.
+OrdersService gọi `options.reserveStock(tx, { orderId, items })` sau khi tạo đơn trong cùng transaction. `items` giữ nguyên từng dòng đã kiểm tra gồm `productId`, `sizeId`, `toppingIds` và `quantity`, để công thức từng dòng được tính đúng.
 
-Commit TV4 `17b8c18` đã thêm `POST /api/orders` và token tiêm phụ thuộc `ORDER_STOCK_RESERVATION`. Tầng HTTP nhận đủ lựa chọn và chuyển tới OrdersService. Khi ghép InventoryService, TV4 đăng ký callback theo kiểu mới đã thống nhất với TV3. Controller hiện trả `503 ORDER_STOCK_NOT_READY` nếu chưa có callback và cần Auth backend của TV5 gắn người dùng đã xác thực vào request.
+Commit TV4 `17b8c18` đã thêm `POST /api/orders` và token tiêm phụ thuộc `ORDER_STOCK_RESERVATION`. Tầng HTTP nhận đủ lựa chọn và chuyển tới OrdersService. Kiểu callback của token được lấy từ `CreateOrderOptions['reserveStock']`. Khi ghép InventoryService, TV4 đăng ký callback theo kiểu này. Controller hiện trả `503 ORDER_STOCK_NOT_READY` nếu chưa có callback và cần Auth backend của TV5 gắn người dùng đã xác thực vào request.
 
-- **TV3:** Giữ phần tính giá, tạo đơn, trạng thái và idempotency hiện có. Đổi callback giữ kho để truyền `order.id` và các dòng đã kiểm tra, mỗi dòng gồm `productId`, `sizeId`, `toppingIds`, `quantity`. Ví dụ chữ ký để TV3 và TV4 thống nhất là `reserveStock(tx, { orderId, items })`. Giữ callback trong transaction tạo đơn. Nếu callback báo lỗi, đơn và các thay đổi kho phải cùng rollback.
+- **TV3:** Callback giữ kho chạy trong transaction tạo đơn và nhận được ID đơn vừa lưu. Nếu callback báo lỗi, đơn và các thay đổi kho phải cùng rollback.
 - **TV4:** Dùng ID size và topping của từng dòng để đọc công thức. Cộng định lượng của toàn bộ đơn theo `ingredientId`, rồi trừ `Ingredient.stock` với điều kiện đủ tồn và phiên bản còn khớp. Dùng cùng `tx` để ghi `OrderIngredient`. Khi hủy hợp lệ, hoàn kho theo số đã lưu và bảo đảm một đơn chỉ được hoàn một lần. Với đơn cũ chưa có bản ghi nguyên liệu, dùng chính sách xử lý đơn cũ mà nhóm thống nhất.
 - **Test khi ghép:** Đặt hai size hoặc topping khác nhau của cùng món và đối chiếu lượng giữ. Gửi đồng thời hai đơn khi chỉ đủ nguyên liệu cho một đơn, kiểm tra đơn bị từ chối không làm đổi kho. Đổi công thức sau khi đặt rồi hủy để kiểm tra hoàn đúng lượng đã lưu.
 

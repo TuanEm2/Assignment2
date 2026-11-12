@@ -1,4 +1,5 @@
 import type { Prisma, SizeName } from '@prisma/client';
+import type { OrderItemInput } from './order-input';
 
 export type OrderCatalog = Pick<Prisma.TransactionClient, 'product'>;
 
@@ -25,15 +26,15 @@ export interface PreparedOrder {
   total: number;
 }
 
-export interface StockRequirement {
-  productId: string;
-  quantity: number;
+export interface StockReservationRequest {
+  orderId: string;
+  items: readonly OrderItemInput[];
 }
 
 export interface CreateOrderOptions {
   reserveStock(
     tx: Prisma.TransactionClient,
-    requirements: readonly StockRequirement[],
+    request: StockReservationRequest,
   ): Promise<void>;
   idempotencyKey?: string;
 }

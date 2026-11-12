@@ -17,7 +17,6 @@ import type {
   CreateOrderOptions,
   OrderCatalog,
   PreparedOrder,
-  StockRequirement,
 } from './order-types';
 
 const optionFields = { id: true, name: true, price: true } as const;
@@ -45,17 +44,6 @@ const orderSelection = {
   },
 } satisfies Prisma.OrderSelect;
 type SavedOrder = Prisma.OrderGetPayload<{ select: typeof orderSelection }>;
-
-function stockRequirements(items: OrderItemInput[]): StockRequirement[] {
-  const totals = new Map<string, number>();
-  for (const { productId, quantity } of items) {
-    totals.set(productId, (totals.get(productId) ?? 0) + quantity);
-  }
-
-  return [...totals.entries()]
-    .sort(([first], [second]) => first.localeCompare(second))
-    .map(([productId, quantity]) => ({ productId, quantity }));
-}
 
 @Injectable()
 export class OrdersService {
@@ -119,7 +107,7 @@ export class OrdersService {
           select: orderSelection,
         });
 
-        await options.reserveStock(tx, stockRequirements(items));
+        await options.reserveStock(tx, { orderId: order.id, items });
         return order;
       });
     } catch (error) {

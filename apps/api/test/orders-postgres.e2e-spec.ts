@@ -1,4 +1,9 @@
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  NotFoundException,
+  type INestApplication,
+} from '@nestjs/common';
+import { Test } from '@nestjs/testing';
 import {
   afterAll,
   beforeAll,
@@ -8,8 +13,14 @@ import {
   it,
 } from '@jest/globals';
 import { randomUUID } from 'node:crypto';
+import type { NextFunction, Request, Response } from 'express';
+import request from 'supertest';
+import type { App } from 'supertest/types';
+import { configureHttp } from '../src/http/app-http.config';
 import type { OrderItemInput } from '../src/orders/order-input';
+import { ORDER_STOCK_RESERVATION } from '../src/orders/order-stock.port';
 import type { CreateOrderOptions } from '../src/orders/order-types';
+import { OrdersController } from '../src/orders/orders.controller';
 import { OrdersService } from '../src/orders/orders.service';
 import { PrismaService } from '../src/prisma/prisma.service';
 
@@ -27,9 +38,15 @@ describeWithDatabase('OrdersService with the TV2 PostgreSQL schema', () => {
   // Test callback for TV4's inventory boundary, using the real Stock table.
   const reserveStock: CreateOrderOptions['reserveStock'] = async (
     tx,
-    requirements,
+    { items },
   ) => {
-    for (const { productId, quantity } of requirements) {
+    const totals = new Map<string, number>();
+    for (const { productId, quantity } of items) {
+      totals.set(productId, (totals.get(productId) ?? 0) + quantity);
+    }
+    for (const [productId, quantity] of [...totals].sort(([a], [b]) =>
+      a.localeCompare(b),
+    )) {
       const updated = await tx.stock.updateMany({
         where: { productId, quantity: { gte: quantity } },
         data: { quantity: { decrement: quantity }, version: { increment: 1 } },
@@ -130,6 +147,66 @@ describeWithDatabase('OrdersService with the TV2 PostgreSQL schema', () => {
     expect(await availableStock()).toBe(3);
   });
 
+  it('creates and replays an order through HTTP with the saved server price', async () => {
+    const module = await Test.createTestingModule({
+      controllers: [OrdersController],
+      providers: [
+        OrdersService,
+        {
+          provide: PrismaService,
+          useFactory: () => new PrismaService({ datasourceUrl: databaseUrl }),
+        },
+        { provide: ORDER_STOCK_RESERVATION, useValue: reserveStock },
+      ],
+    }).compile();
+    const app: INestApplication<App> = module.createNestApplication();
+    // Supply a test principal while TV5's JWT guard is pending.
+    app.use(
+      (
+        req: Request & { user?: { id: string } },
+        _res: Response,
+        next: NextFunction,
+      ) => {
+        req.user = { id: userId };
+        next();
+      },
+    );
+    configureHttp(app);
+
+    try {
+      await app.init();
+      const http = request(app.getHttpServer());
+      await http
+        .post('/api/orders')
+        .send({ items: [item], total: 1000 })
+        .expect(400);
+
+      const key = randomUUID();
+      const create = () =>
+        http
+          .post('/api/orders')
+          .set('Idempotency-Key', key)
+          .send({ items: [item] });
+      const first = await create().expect(201);
+      await create().expect(201, first.body);
+
+      const stored = await prisma.order.findFirstOrThrow({
+        where: { userId, idempotencyKey: key },
+      });
+      expect(first.body).toMatchObject({
+        id: stored.id,
+        userId,
+        status: 'PENDING',
+        total: 110000,
+      });
+      expect(stored.total).toBe(110000);
+      expect(await prisma.order.count({ where: { userId } })).toBe(1);
+      expect(await availableStock()).toBe(3);
+    } finally {
+      await app.close();
+    }
+  });
+
   it('rolls back the order, items and stock when reservation fails after writing', async () => {
     const error = new ConflictException('Failed after reserving stock');
     await expect(
@@ -137,8 +214,8 @@ describeWithDatabase('OrdersService with the TV2 PostgreSQL schema', () => {
         userId,
         { items: [item] },
         {
-          reserveStock: async (tx, requirements) => {
-            await reserveStock(tx, requirements);
+          reserveStock: async (tx, reservation) => {
+            await reserveStock(tx, reservation);
             throw error;
           },
         },
@@ -148,6 +225,29 @@ describeWithDatabase('OrdersService with the TV2 PostgreSQL schema', () => {
     expect(await prisma.order.count({ where: { userId } })).toBe(0);
     expect(await prisma.orderItem.count({ where: { productId } })).toBe(0);
     expect(await availableStock()).toBe(5);
+  });
+
+  it('passes the saved order ID and preserves distinct options for stock reservation', async () => {
+    const items = [item, { ...item, toppingIds: [], quantity: 1 }];
+    let reservedOrderId: string | undefined;
+
+    const order = await service.createOrder(
+      userId,
+      { items },
+      {
+        reserveStock: async (tx, request) => {
+          reservedOrderId = request.orderId;
+          expect(request.items).toEqual(items);
+          expect(
+            await tx.order.count({ where: { id: request.orderId, userId } }),
+          ).toBe(1);
+          await reserveStock(tx, request);
+        },
+      },
+    );
+
+    expect(reservedOrderId).toBe(order.id);
+    expect(await availableStock()).toBe(2);
   });
 
   it('rejects multiple lines whose combined quantity exceeds shared stock', async () => {

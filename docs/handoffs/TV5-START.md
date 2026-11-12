@@ -1,5 +1,47 @@
 # Bắt đầu TV5 — Assignment 2
 
+## Sprint 2, bàn giao push đợt 1
+
+Lấy bản tích hợp TV2–TV4 trên `feature/tv2-cart` sau khi nhóm
+chuyển bản sửa lên GitHub. Nhánh đó đã chứa nền `feature/tv5-auth-detail`
+của Sprint 1. Nếu nhánh TV5 đã có commit mới, hợp nhất bản bàn giao
+vào nhánh TV5 để giữ các commit đó.
+
+Với nhánh TV5 đang ở nền Sprint 1, chạy các lệnh sau tại thư mục repo.
+
+```powershell
+git fetch origin
+git switch feature/tv5-auth-detail
+git merge --ff-only origin/feature/tv2-cart
+```
+
+Phần TV5 ở lượt này là đăng ký, đăng nhập, hash mật khẩu và JWT guard.
+API frontend hiện gọi `POST /api/auth/register` và `POST /api/auth/login`.
+Form login cần `accessToken`, `tokenType` và `user` có `id`, `email`.
+Schema `User` dùng UUID, email duy nhất và `passwordHash`.
+
+Gắn guard vào `POST /api/orders` trong `apps/api/src/orders/orders.controller.ts`
+để xác thực Bearer token và đặt
+`request.user.id` bằng UUID của tài khoản đã xác thực. Route lấy chủ
+đơn từ trường này. Đặt `NEXT_PUBLIC_API_URL=http://localhost:4000`
+ở frontend để các form trỏ tới NestJS khi thử local.
+
+- Gửi yêu cầu thiếu danh tính đã xác thực nhận `401`.
+- Khi đã có danh tính hợp lệ, body sai hoặc chứa giá/tổng tiền do khách gửi nhận `400`.
+- Body hợp lệ sẽ nhận `503 ORDER_STOCK_NOT_READY` cho tới khi TV4 đăng ký callback giữ kho ở đợt 2. Bài test PostgreSQL dùng principal và callback thử nghiệm để kiểm tra route trả `201`, giá do server tính và gửi lại cùng key chỉ lưu một đơn.
+- Lịch sử đơn và test quyền truy cập thuộc đợt 2 của TV5 theo phân công.
+
+Xem [schema, migration và seed](TV2-sprint2-schema.md) và
+[API tạo đơn của TV4](TV4-sprint2-push1.md). Sau khi migrate database
+thử nghiệm, chạy suite API từ thư mục repo.
+
+```powershell
+$env:BREWLITE_ORDERS_TEST_DATABASE_URL = $env:DATABASE_URL
+npm run test:e2e -w apps/api -- --runInBand
+```
+
+## Tài liệu Sprint 1
+
 Repo: https://github.com/TuanEm2/Assignment2.git
 Nền đã kiểm tra: origin/feature/tv4-menu-stock @ 9862594.
 Nhánh cá nhân đề nghị: feature/tv5-auth-detail.

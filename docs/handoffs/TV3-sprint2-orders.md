@@ -8,7 +8,7 @@ Service đọc giá từ PostgreSQL, ghi đơn `PENDING` cùng tên món, size, 
 
 ## Nối controller và tồn kho của TV4
 
-Truyền `options.reserveStock(tx, requirements)` từ inventory service. Danh sách `requirements` đã cộng số lượng theo sản phẩm và sắp theo ID. Inventory dùng đúng `tx` được truyền. Khi giữ kho thất bại, lỗi thoát ra để rollback các dòng đơn và cập nhật tồn.
+Truyền `options.reserveStock(tx, { orderId, items })` từ inventory service. `items` giữ từng dòng đã kiểm tra gồm `productId`, `sizeId`, `toppingIds` và `quantity`. Inventory tự cộng nhu cầu theo nguyên liệu và dùng đúng `tx` được truyền để cập nhật kho và lưu `OrderIngredient` cho `orderId`. Khi giữ kho thất bại, lỗi thoát ra để rollback các dòng đơn và cập nhật tồn.
 
 Có thể truyền `options.idempotencyKey` từ header của yêu cầu tạo đơn. Khóa dài 1–128 ký tự ASCII in được, không có khoảng trắng. Cùng khách, cùng khóa và cùng các dòng trả lại đơn đã lưu, kể cả khi hai yêu cầu chạy đồng thời. Cùng khóa nhưng đổi món hoặc số lượng trả `409`. Checkout giữ khóa khi gửi lại cùng yêu cầu.
 

@@ -4,7 +4,7 @@
 - Ngày cập nhật: 12/11/2026.
 - Nhánh: `feature/tv4-menu-stock`.
 - Nền tích hợp: code mới từ `feature/tv3-products-orders`.
-- Trạng thái: đã viết code và kiểm tra cục bộ; chuẩn bị push đợt 1.
+- Commit đợt 1 của TV4: `17b8c18`. Xem [bàn giao Sprint 2 cho TV5](TV5-START.md) để lấy bản tích hợp có schema nguyên liệu và điểm nối giữ kho.
 
 ## 1. Phạm vi công việc
 
@@ -98,9 +98,9 @@ apps/api/src/orders/orders.module.ts
 | Chưa cấu hình callback giữ kho | 503 |
 | Service trả đơn thành công khi đủ đầu vào tích hợp | 201 |
 
-Trong ZIP nền hiện chưa có Auth backend của TV5 và
-InventoryService của TV4. Vì vậy, chưa xác nhận tạo đơn thật
-thành công qua endpoint này.
+API ứng dụng cần Auth backend của TV5 và InventoryService của TV4
+để nhận đơn từ khách. Suite PostgreSQL kiểm tra route, lưu đơn
+và gửi lại yêu cầu với principal và callback thử nghiệm.
 
 Controller không tự xác thực JWT. TV5 cần nối guard/middleware
 để xác thực token và gắn người dùng lên `request.user`.
@@ -114,7 +114,10 @@ ORDER_STOCK_RESERVATION
 ```
 
 Callback kế thừa kiểu `CreateOrderOptions['reserveStock']`
-của TV3 và phải sử dụng cùng transaction được truyền vào.
+của TV3. Chữ ký trong bản tích hợp là
+`reserveStock(tx, { orderId, items })`. Mỗi dòng có
+`productId`, `sizeId`, `toppingIds` và `quantity`.
+Callback dùng cùng transaction để cập nhật tồn và ghi `OrderIngredient`.
 
 Khi callback chưa được đăng ký, controller trả:
 
@@ -218,16 +221,13 @@ http://localhost:3000/menu
 ## 8. Đầu vào còn cần cho đợt 2
 
 - Auth backend/JWT guard của TV5.
-- Schema và định lượng tồn nguyên liệu phối hợp với TV2.
-- Điều chỉnh contract giữ kho với TV3 để giữ đủ thông tin
-  size/topping trước khi tính nhu cầu nguyên liệu.
+- Đọc schema và định lượng mẫu TV2 theo
+  [tài liệu bàn giao database](TV2-sprint2-schema.md).
 - InventoryService cập nhật nguyên liệu trong cùng transaction tạo đơn.
 - Chính sách giữ, trừ và hoàn kho.
 - Test PostgreSQL, rollback và chống oversell khi nhiều đơn đồng thời.
 - Xác nhận migration Sprint 2 đã được áp dụng trước khi thử tạo đơn thật.
 
-Schema Stock và callback hiện tại còn theo sản phẩm.
-Chưa xác nhận đáp ứng yêu cầu tồn nguyên liệu của lead.
-
-Đợt 1 hoàn thiện phần URL và tầng HTTP; chưa xác nhận
-toàn bộ luồng đặt hàng/thanh toán hoặc CI GitHub đã đạt.
+Suite PostgreSQL dùng bảng `Stock` theo sản phẩm cho callback
+thử nghiệm. InventoryService đợt 2 dùng `Ingredient.stock`
+và lưu lượng đã giữ vào `OrderIngredient`.
