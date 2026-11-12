@@ -2,11 +2,12 @@ import { jest } from '@jest/globals';
 import { NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { PrismaService } from '../prisma/prisma.service';
+import type { ProductDetailDto, ProductDto } from './dto/product.dto';
 import { ProductsService } from './products.service';
 
 describe('ProductsService', () => {
-  const findMany = jest.fn();
-  const findUnique = jest.fn();
+  const findMany = jest.fn<() => Promise<ProductDto[]>>();
+  const findUnique = jest.fn<() => Promise<ProductDetailDto | null>>();
   let service: ProductsService;
 
   beforeEach(async () => {
