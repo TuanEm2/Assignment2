@@ -30,6 +30,12 @@ try {
         select: { id: true },
       });
 
+      await db.stock.upsert({
+        where: { productId: product.id },
+        create: { productId: product.id, quantity: 100 },
+        update: {},
+      });
+
       // The keys allow seed to fill missing options without replacing existing prices.
       for (const size of sizes) {
         const key = { productId: product.id, name: size.name };
