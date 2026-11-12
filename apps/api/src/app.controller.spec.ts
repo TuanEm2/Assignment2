@@ -19,4 +19,13 @@ describe('AppController', () => {
       expect(appController.getHello()).toBe('Hello World!');
     });
   });
+
+  describe('health', () => {
+    it('returns a liveness payload with a valid ISO timestamp', () => {
+      const response = appController.getHealth();
+      expect(response.status).toBe('ok');
+      expect(response.service).toBe('brewlite-api');
+      expect(Number.isNaN(Date.parse(response.timestamp))).toBe(false);
+    });
+  });
 });
