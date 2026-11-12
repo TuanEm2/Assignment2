@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { PrismaService } from '../prisma/prisma.service';
