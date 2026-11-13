@@ -58,6 +58,12 @@ jobs:
       - name: Integration contract tests (TV6)
         run: npm run test:integration
 
+      - name: Validate Docker Compose definition
+        env:
+          POSTGRES_PASSWORD: ci-placeholder-only
+          JWT_SECRET: ci-placeholder-only-not-used-by-runtime
+        run: docker compose -f compose.yaml config --quiet
+
       - name: Build NestJS
         run: npm run build:api
 
