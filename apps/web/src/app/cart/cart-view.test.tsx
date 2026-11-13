@@ -59,6 +59,35 @@ describe('CartView', () => {
     expect(screen.getByRole('status', { name: 'Số lượng hiện tại' })).toHaveTextContent(/^98$/);
   });
 
+  it('cộng tiền nhiều món và nhiều topping, chỉ cập nhật dòng được tăng', async () => {
+    const user = userEvent.setup();
+    const add = useCartStore.getState().addItem;
+    add({ productId: 'americano', productName: 'Americano', basePrice: 40000 });
+    add({
+      productId: 'tra-dao',
+      productName: 'Trà đào',
+      basePrice: 39000,
+      size: { id: 'large', name: 'L', price: 10000 },
+      toppings: [
+        { id: 'pearls', name: 'Trân châu', price: 5000 },
+        { id: 'cream', name: 'Kem', price: 10000 },
+      ],
+    });
+    render(<CartView />);
+    const [americano, tea] = screen.getAllByRole('listitem');
+    const summary = within(screen.getByRole('complementary'));
+
+    expect(within(tea).getByText(/size l · kem, trân châu/i)).toBeInTheDocument();
+    expect(summary.getByText(/104\.000/)).toBeInTheDocument();
+
+    await user.click(within(tea).getByRole('button', { name: 'Tăng số lượng Trà đào' }));
+
+    expect(within(americano).getByRole('status', { name: 'Số lượng hiện tại' })).toHaveTextContent(/^1$/);
+    expect(within(tea).getByRole('status', { name: 'Số lượng hiện tại' })).toHaveTextContent(/^2$/);
+    expect(summary.getByText('3 ly')).toBeInTheDocument();
+    expect(summary.getByText(/168\.000/)).toBeInTheDocument();
+  });
+
   it('tách các dòng cùng món theo size và topping, tính lại tổng khi xóa một dòng', async () => {
     const user = userEvent.setup();
     const add = useCartStore.getState().addItem;

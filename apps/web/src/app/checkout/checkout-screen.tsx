@@ -17,6 +17,7 @@ export function CheckoutScreen() {
   const { state, handlePay, handleCheckStatus } = useCheckoutOrchestrator();
   const actionInProgress = useRef(false);
   const [checkingStatus, setCheckingStatus] = useState(false);
+  const showEmptyCart = items.length === 0 && (state.phase === 'review' || state.phase === 'failed');
 
   const onPay = async (method: PaymentMethod) => {
     if (actionInProgress.current) return;
@@ -49,7 +50,7 @@ export function CheckoutScreen() {
         <h1 className="mt-4 text-3xl font-bold tracking-tight">Thanh toán</h1>
         {!ready ? (
           <p role="status" className="mt-6">Đang tải đơn hàng…</p>
-        ) : items.length === 0 && state.phase !== 'paid' ? (
+        ) : showEmptyCart ? (
           <p className="mt-6">Giỏ hàng của bạn đang trống.</p>
         ) : !signedIn ? (
           <section className="mt-6 rounded-xl border border-stone-200 bg-white p-5">
