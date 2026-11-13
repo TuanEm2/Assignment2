@@ -45,12 +45,11 @@ export function CheckoutView({ items, subtotal, state, onPay, onCheckStatus, che
 
   const processing = state.phase === 'processing';
   const unknown = state.phase === 'unknown';
-  const busy = processing || checkingStatus;
-  const canPay = Boolean(onPay) && !busy && !unknown && items.length > 0;
+  const canPay = Boolean(onPay) && !processing && !unknown && items.length > 0;
 
   return (
     <form
-      aria-busy={busy}
+      aria-busy={processing || checkingStatus}
       className="mt-6 space-y-5 rounded-xl border border-stone-200 bg-white p-5"
       onSubmit={(event) => {
         event.preventDefault();
@@ -72,7 +71,7 @@ export function CheckoutView({ items, subtotal, state, onPay, onCheckStatus, che
         </p>
       </section>
 
-      <fieldset disabled={busy || unknown} className="grid min-w-0 gap-2 sm:grid-cols-2">
+      <fieldset disabled={processing || unknown} className="grid min-w-0 gap-2 sm:grid-cols-2">
         <legend className="mb-2 text-base font-semibold">Phương thức thanh toán</legend>
         {methods.map(({ value, label }) => (
           <label key={value} className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border border-stone-300 px-3 py-2 has-checked:border-amber-900 has-checked:bg-amber-50">

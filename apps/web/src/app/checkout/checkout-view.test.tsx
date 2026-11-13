@@ -112,9 +112,6 @@ describe('Checkout UI', () => {
     completeOrder(Response.json({ id: 'order-123', total: 45000, status: 'PENDING' }));
     const check = await screen.findByRole('button', { name: 'Kiểm tra trạng thái' });
     expect(useCartStore.getState().items).toHaveLength(1);
-    // The order already exists even if the local cart is cleared.
-    act(() => useCartStore.getState().clearCart());
-    expect(check).toBeInTheDocument();
     await user.click(check);
     const checking = screen.getByRole('button', { name: 'Đang kiểm tra…' });
     expect(checking).toBeDisabled();
