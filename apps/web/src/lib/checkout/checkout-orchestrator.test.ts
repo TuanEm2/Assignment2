@@ -2,7 +2,7 @@ import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useAuthStore } from '@/stores/auth-store';
 import { useCartStore } from '@/stores/cart-store';
-import { useCheckoutOrchestrator } from './use-checkout-orchestrator';
+import { PaymentStatusUnknownError, useCheckoutOrchestrator } from './use-checkout-orchestrator';
 
 describe('useCheckoutOrchestrator (Checkout Orchestration TV6)', () => {
   beforeEach(() => {
@@ -90,4 +90,55 @@ describe('useCheckoutOrchestrator (Checkout Orchestration TV6)', () => {
     expect(result.current.state.phase).toBe('failed');
     expect(useCartStore.getState().items.length).toBe(1);
   });
+  it('retry after failed order request reuses the same order idempotency key', async () => {
+    useAuthStore.getState().setAuth('mock-token-xyz', { id: 'u-01', email: 'customer@brewlite.vn' });
+    const create = vi.fn().mockRejectedValueOnce(new Error('Temporary error')).mockResolvedValueOnce({
+      id: 'ord-12345', total: 90000, status: 'PENDING',
+    });
+    const payment = vi.fn().mockResolvedValue({ success: true });
+    const { result } = renderHook(() => useCheckoutOrchestrator({
+      orderSubmitter: create, paymentProcessor: payment,
+    }));
+
+    await act(async () => { await result.current.handlePay([mockItem], 90000, 'MOCK_WALLET'); });
+    await act(async () => { await result.current.handlePay([mockItem], 90000, 'MOCK_WALLET'); });
+
+    expect(create).toHaveBeenCalledTimes(2);
+    expect(create.mock.calls[0][2]).toBe(create.mock.calls[1][2]);
+    expect(result.current.state.phase).toBe('paid');
+  });
+
+  it('uncertain payment does not mark PAID without checking backend status', async () => {
+    useAuthStore.getState().setAuth('mock-token-xyz', { id: 'u-01', email: 'customer@brewlite.vn' });
+    const create = vi.fn().mockResolvedValue({ id: 'ord-12345', total: 90000, status: 'PENDING' });
+    const payment = vi.fn().mockRejectedValue(new PaymentStatusUnknownError('Network timeout'));
+    const status = vi.fn().mockResolvedValue({ success: true, status: 'PAID', amount: 90000 });
+    const { result } = renderHook(() => useCheckoutOrchestrator({
+      orderSubmitter: create, paymentProcessor: payment, statusChecker: status,
+    }));
+
+    await act(async () => { await result.current.handlePay([mockItem], 90000, 'MOCK_WALLET'); });
+    expect(result.current.state.phase).toBe('unknown');
+
+    await act(async () => { await result.current.handleCheckStatus(); });
+    expect(status).toHaveBeenCalledWith('ord-12345', 'mock-token-xyz');
+    expect(result.current.state.phase).toBe('paid');
+  });
+
+  it('confirmed FAILURE retries the same Order with a fresh payment key', async () => {
+    useAuthStore.getState().setAuth('mock-token-xyz', { id: 'u-01', email: 'customer@brewlite.vn' });
+    const create = vi.fn().mockResolvedValue({ id: 'ord-12345', total: 90000, status: 'PENDING' });
+    const payment = vi.fn().mockResolvedValueOnce({ success: false }).mockResolvedValueOnce({ success: true });
+    const { result } = renderHook(() => useCheckoutOrchestrator({
+      orderSubmitter: create, paymentProcessor: payment,
+    }));
+
+    await act(async () => { await result.current.handlePay([mockItem], 90000, 'MOCK_WALLET'); });
+    expect(result.current.state.phase).toBe('failed');
+    await act(async () => { await result.current.handlePay([mockItem], 90000, 'MOCK_WALLET'); });
+    expect(create.mock.calls[0][2]).toBe(create.mock.calls[1][2]);
+    expect(payment.mock.calls[0][3]).not.toBe(payment.mock.calls[1][3]);
+    expect(result.current.state.phase).toBe('paid');
+  });
+
 });
