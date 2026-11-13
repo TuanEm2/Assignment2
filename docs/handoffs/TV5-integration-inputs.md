@@ -1,3 +1,7 @@
+# Hợp đồng hiện tại — đợt 2
+
+History mới dùng Prisma/schema thật trên nền TV4 `afd9c92`, không còn reader đề xuất cũ. List trả array theo TV6, cursor qua header; chi tiết/status bắt buộc JWT/owner. Hợp đồng chính xác tại `../api/order-history.md`; các đầu vào chờ Auth/schema ở dưới là lịch sử.
+
 > Cập nhật Sprint 2 đợt 1: đã nhận User/Order schema và Auth đã nối Prisma, mount trong AppModule; xem `TV5-sprint2-push1.md`. Nội dung phía dưới ghi trạng thái lúc chuẩn bị Sprint 1. History vẫn dành cho đợt 2.
 
 # TV5 — Ranh giới công việc và đầu vào tích hợp

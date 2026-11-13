@@ -1,3 +1,7 @@
+# Cập nhật Sprint 2 đợt 2
+
+History đã được nối PostgreSQL thật trên nền TV4 `afd9c92`. Đọc `TV5-sprint2-push2.md`, `TV5-TV6-history-integration.md` và `../api/order-history.md` trước. Các mục chờ History/Inventory bên dưới là lịch sử đợt trước, không còn mô tả bản mới.
+
 # Cập nhật sau khi áp dụng gói TV5 đợt 1
 
 Auth đã nối User thật và được mount; xem `docs/api/auth.md` và `TV5-sprint2-push1.md`. Phần dưới là lịch sử hướng dẫn trước khi nhận gói; không dùng mục “Chưa xong toàn bộ” để kết luận Auth vẫn chỉ là đề xuất. History vẫn ở đợt 2. Nhận nền TV2 bằng nhánh TV5, không push vào nhánh TV2.

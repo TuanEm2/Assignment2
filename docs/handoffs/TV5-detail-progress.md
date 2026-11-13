@@ -1,3 +1,7 @@
+# Tiến độ hiện tại — đợt 2
+
+Auth đợt 1 đã có trong nền chung; History API đợt 2 đã mount và kiểm thử với Orders/Inventory/Payment thật. Xem `TV5-sprint2-push2.md` cho bằng chứng và giới hạn. Giao diện nghiệm thu do TV6 tiếp tục; các mục chưa có schema/Auth/History bên dưới thuộc lịch sử chuẩn bị cũ.
+
 > Cập nhật Sprint 2 đợt 1: đã nhận User/Order schema và Auth đã nối Prisma, mount trong AppModule; xem `TV5-sprint2-push1.md`. Nội dung phía dưới ghi trạng thái lúc chuẩn bị Sprint 1. History vẫn dành cho đợt 2.
 
 # TV5 — Product Detail trên nền catalog/API mới
