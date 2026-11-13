@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useAuthStore } from '@/stores/auth-store';
@@ -20,6 +20,7 @@ describe('Checkout UI', () => {
   afterEach(() => {
     useAuthStore.getState().logout();
     useCartStore.getState().clearCart();
+    vi.unstubAllGlobals();
   });
 
   it('đưa khách chưa đăng nhập đến trang đăng nhập có đường quay lại', () => {
@@ -82,5 +83,44 @@ describe('Checkout UI', () => {
     expect(screen.getByRole('heading', { name: 'Thanh toán thành công' })).toBeInTheDocument();
     expect(screen.getByText('Mã đơn order-123')).toBeInTheDocument();
     expect(screen.getByText(/đã thanh toán 40\.000/i)).toBeInTheDocument();
+  });
+
+  it('khóa gửi đơn và kiểm tra trạng thái trong lúc chờ, sau đó hiển thị số tiền API xác nhận', async () => {
+    const user = userEvent.setup();
+    let completeOrder!: (response: Response) => void;
+    let completeStatus!: (response: Response) => void;
+    const orderResponse = new Promise<Response>((resolve) => { completeOrder = resolve; });
+    const statusResponse = new Promise<Response>((resolve) => { completeStatus = resolve; });
+    const fetchMock = vi.fn()
+      .mockReturnValueOnce(orderResponse)
+      .mockResolvedValueOnce(new Response(null, { status: 502 }))
+      .mockReturnValueOnce(statusResponse);
+    vi.stubGlobal('fetch', fetchMock);
+    useAuthStore.getState().setAuth('test-token', { id: 'customer-1', email: 'customer@example.invalid' });
+    useCartStore.getState().addItem(item);
+    render(<CheckoutScreen />);
+
+    expect(screen.getByText(/tạm tính 40\.000/i)).toBeInTheDocument();
+    const form = screen.getByRole('button', { name: 'Xác nhận thanh toán' }).closest('form')!;
+    act(() => {
+      fireEvent.submit(form);
+      fireEvent.submit(form);
+    });
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(screen.getByRole('button', { name: 'Đang xử lý…' })).toBeDisabled();
+
+    completeOrder(Response.json({ id: 'order-123', total: 45000, status: 'PENDING' }));
+    const check = await screen.findByRole('button', { name: 'Kiểm tra trạng thái' });
+    expect(useCartStore.getState().items).toHaveLength(1);
+    await user.click(check);
+    const checking = screen.getByRole('button', { name: 'Đang kiểm tra…' });
+    expect(checking).toBeDisabled();
+    await user.click(checking);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+
+    completeStatus(Response.json({ success: true, status: 'PAID', amount: 45000 }));
+    expect(await screen.findByRole('heading', { name: 'Thanh toán thành công' })).toBeInTheDocument();
+    expect(screen.getByText(/đã thanh toán 45\.000/i)).toBeInTheDocument();
+    expect(useCartStore.getState().items).toHaveLength(0);
   });
 });

@@ -46,14 +46,14 @@ export function CartView() {
           </section>
         ) : (
           <div className="mt-6 grid gap-5 md:grid-cols-[minmax(0,1fr)_16rem]">
-            <ul aria-label="Đồ uống trong giỏ" className="grid min-w-0 gap-3">
+            <ul aria-label="Đồ uống trong giỏ" className="grid min-w-0 content-start gap-3">
               {items.map((item) => (
                 <li key={item.id} className="min-w-0 rounded-xl border border-stone-200 bg-white p-4">
                   <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
-                    <h2 className="min-w-0 break-words text-lg font-semibold">{item.productName}</h2>
-                    <span className="font-semibold tabular-nums">{vnd.format(getCartLineTotal(item))}</span>
+                    <h2 className="min-w-0 wrap-anywhere text-lg font-semibold">{item.productName}</h2>
+                    <span className="shrink-0 font-semibold tabular-nums">{vnd.format(getCartLineTotal(item))}</span>
                   </div>
-                  <p className="mt-1 break-words text-sm text-stone-700">
+                  <p className="mt-1 wrap-anywhere text-sm text-stone-700">
                     {item.size && <>Size {item.size.name} · </>}
                     {item.toppings.length > 0
                       ? item.toppings.map((topping) => topping.name).join(', ')
@@ -97,7 +97,7 @@ export function CartView() {
               ))}
             </ul>
 
-            <aside className="self-start rounded-xl border border-stone-200 bg-white p-4">
+            <aside className="self-start rounded-xl border border-stone-200 bg-white p-4 md:sticky md:top-4">
               <h2 className="text-lg font-semibold">Tóm tắt giỏ hàng</h2>
               <dl aria-live="polite" className="mt-3 grid gap-2 text-sm">
                 <div className="flex justify-between gap-3 text-stone-700">

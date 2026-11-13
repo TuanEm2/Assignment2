@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRef, useState } from 'react';
 import { useClientReady } from '@/lib/client-ready';
 import { useCheckoutOrchestrator } from '@/lib/checkout/use-checkout-orchestrator';
 import { selectIsAuthenticated, useAuthStore } from '@/stores/auth-store';
@@ -14,9 +15,29 @@ export function CheckoutScreen() {
   const subtotal = useCartStore(selectCartSubtotal);
 
   const { state, handlePay, handleCheckStatus } = useCheckoutOrchestrator();
+  const actionInProgress = useRef(false);
+  const [checkingStatus, setCheckingStatus] = useState(false);
 
-  const onPay = (method: PaymentMethod) => {
-    handlePay(items, subtotal, method);
+  const onPay = async (method: PaymentMethod) => {
+    if (actionInProgress.current) return;
+    actionInProgress.current = true;
+    try {
+      await handlePay(items, subtotal, method);
+    } finally {
+      actionInProgress.current = false;
+    }
+  };
+
+  const onCheckStatus = async () => {
+    if (actionInProgress.current) return;
+    actionInProgress.current = true;
+    setCheckingStatus(true);
+    try {
+      await handleCheckStatus();
+    } finally {
+      setCheckingStatus(false);
+      actionInProgress.current = false;
+    }
   };
 
   return (
@@ -43,7 +64,8 @@ export function CheckoutScreen() {
             subtotal={subtotal}
             state={state}
             onPay={onPay}
-            onCheckStatus={handleCheckStatus}
+            onCheckStatus={onCheckStatus}
+            checkingStatus={checkingStatus}
           />
         )}
       </div>
