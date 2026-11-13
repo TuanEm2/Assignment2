@@ -1,3 +1,4 @@
+import { JwtAuthGuard } from '../src/auth/jwt-auth.guard';
 import {
   ConflictException,
   NotFoundException,
@@ -158,7 +159,7 @@ describeWithDatabase('OrdersService with the TV2 PostgreSQL schema', () => {
         },
         { provide: ORDER_STOCK_RESERVATION, useValue: reserveStock },
       ],
-    }).compile();
+    }).overrideGuard(JwtAuthGuard).useValue({ canActivate: () => true }).compile();
     const app: INestApplication<App> = module.createNestApplication();
     // Supply a test principal while TV5's JWT guard is pending.
     app.use(

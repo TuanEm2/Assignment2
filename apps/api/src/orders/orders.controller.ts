@@ -10,6 +10,7 @@ import {
   Req,
   ServiceUnavailableException,
   UnauthorizedException,
+  UseGuards,
 } from '@nestjs/common';
 
 import type { Request } from 'express';
@@ -24,6 +25,7 @@ import {
 } from './order-stock.port';
 
 import { OrdersService } from './orders.service';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 type OrderRequest = Request & {
   user?: unknown;
@@ -73,6 +75,7 @@ export class OrdersController {
   ) {}
 
   @Post()
+  @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.CREATED)
   async create(
     @Req() request: OrderRequest,

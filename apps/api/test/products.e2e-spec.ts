@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
@@ -25,11 +26,13 @@ const detail = {
 };
 
 describe('Products API (e2e)', () => {
-  const findMany = jest.fn();
-  const findUnique = jest.fn();
+  const findMany = jest.fn<() => Promise<(typeof product)[]>>();
+  const findUnique = jest.fn<() => Promise<typeof detail | null>>();
   let app: INestApplication<App>;
+  const previousSecret = process.env.JWT_SECRET;
 
   beforeAll(async () => {
+    process.env.JWT_SECRET = 'products-test-only-jwt-key-at-least-32-bytes';
     const module = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(PrismaService)
       .useValue({ product: { findMany, findUnique } })
@@ -46,6 +49,8 @@ describe('Products API (e2e)', () => {
 
   afterAll(async () => {
     await app?.close();
+    if (previousSecret === undefined) delete process.env.JWT_SECRET;
+    else process.env.JWT_SECRET = previousSecret;
   });
 
   it('serves the catalog at the public API prefix', async () => {

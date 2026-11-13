@@ -1,3 +1,5 @@
+> Cập nhật Sprint 2 đợt 1: đã nhận User/Order schema và Auth đã nối Prisma, mount trong AppModule; xem `TV5-sprint2-push1.md`. Nội dung phía dưới ghi trạng thái lúc chuẩn bị Sprint 1. History vẫn dành cho đợt 2.
+
 # TV5 — Ranh giới công việc và đầu vào tích hợp
 
 Nền đầu: `feature/tv1-devops`, commit `46ed650`. Đã cập nhật fast-forward cục bộ tới `origin/feature/tv4-menu-stock` tại `9862594`, chứa catalog TV2 và API TV3. Nhánh TV5: `feature/tv5-auth-detail`.

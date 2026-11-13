@@ -1,3 +1,4 @@
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import {
   BadRequestException,
   ConflictException,
@@ -101,7 +102,7 @@ describe('OrdersController — HTTP, dependencies mocked', () => {
             ]
           : []),
       ],
-    }).compile();
+    }).overrideGuard(JwtAuthGuard).useValue({ canActivate: () => true }).compile();
 
     const instance: INestApplication<App> =
       module.createNestApplication();

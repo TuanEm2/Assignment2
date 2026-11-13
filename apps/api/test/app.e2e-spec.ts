@@ -8,6 +8,12 @@ import { PrismaService } from '../src/prisma/prisma.service';
 
 describe('AppController (e2e)', () => {
   let app: INestApplication<App>;
+  const previousSecret = process.env.JWT_SECRET;
+  beforeAll(() => { process.env.JWT_SECRET = 'health-test-only-jwt-key-at-least-32-bytes'; });
+  afterAll(() => {
+    if (previousSecret === undefined) delete process.env.JWT_SECRET;
+    else process.env.JWT_SECRET = previousSecret;
+  });
 
   beforeEach(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({

@@ -1,3 +1,5 @@
+> Cập nhật Sprint 2 đợt 1: đã nhận User/Order schema và Auth đã nối Prisma, mount trong AppModule; xem `TV5-sprint2-push1.md`. Nội dung phía dưới ghi trạng thái lúc chuẩn bị Sprint 1. History vẫn dành cho đợt 2.
+
 # TV5 — Product Detail trên nền catalog/API mới
 
 Nền: `9862594` của TV4, chứa catalog TV2 `c3c35a9` và Product API TV3 `3cf216e`.

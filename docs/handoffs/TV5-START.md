@@ -1,3 +1,7 @@
+# Cập nhật sau khi áp dụng gói TV5 đợt 1
+
+Auth đã nối User thật và được mount; xem `docs/api/auth.md` và `TV5-sprint2-push1.md`. Phần dưới là lịch sử hướng dẫn trước khi nhận gói; không dùng mục “Chưa xong toàn bộ” để kết luận Auth vẫn chỉ là đề xuất. History vẫn ở đợt 2. Nhận nền TV2 bằng nhánh TV5, không push vào nhánh TV2.
+
 # Bắt đầu TV5 — Assignment 2
 
 ## Sprint 2, bàn giao push đợt 1
