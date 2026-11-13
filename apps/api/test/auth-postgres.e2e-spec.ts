@@ -139,7 +139,8 @@ describe('TV5 first-push Auth — real PostgreSQL + HTTP + JWT/hash', () => {
       .send({ ...body, total: 1 }).expect(400);
     const response = await request(app.getHttpServer()).post('/api/orders')
       .set('Authorization', `Bearer ${user.token}`).send(body).expect(503);
-    expect(response.body.code).toBe('ORDER_STOCK_NOT_READY');
+    // Inventory đã được nối; fixture Auth cũ chưa có công thức nguyên liệu.
+    expect(response.body.code).toBe('INGREDIENT_RECIPE_NOT_CONFIGURED');
     expect(await prisma.order.count({ where: { userId: user.id } })).toBe(0);
     expect((await prisma.stock.findUniqueOrThrow({ where: { productId } })).quantity).toBe(3);
   });

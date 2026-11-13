@@ -140,6 +140,7 @@ model Order {
   total            Int
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
+  stockReleasedAt DateTime?
   user             User              @relation(fields: [userId], references: [id], onDelete: Restrict)
   items            OrderItem[]
   payment          Payment?
