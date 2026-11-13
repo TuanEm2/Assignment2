@@ -19,7 +19,7 @@ Có thể truyền `options.idempotencyKey` từ header của yêu cầu tạo �
 | Trạng thái hiện tại | Được chuyển sang |
 | --- | --- |
 | PENDING | PAYMENT_FAILED, PAID, CANCELLED |
-| PAYMENT_FAILED | PAID, CANCELLED |
+| PAYMENT_FAILED | PAYMENT_FAILED, PAID, CANCELLED |
 | PAID | PREPARING, CANCELLED |
 | PREPARING | READY |
 | READY | COMPLETED |
@@ -36,4 +36,16 @@ npm run test -w apps/api -- --runInBand
 npm run test:e2e -w apps/api -- --runInBand --runTestsByPath test/orders-postgres.e2e-spec.ts
 ```
 
-Suite PostgreSQL dùng bảng thật, tạo và dọn dữ liệu riêng. Callback giữ kho trong suite dùng để thử transaction của TV3. Controller và inventory của TV4 cùng xác thực của TV5 là các đầu vào cần nối để mở `POST /api/orders`.
+Suite PostgreSQL dùng bảng thật, tạo và dọn dữ liệu riêng. Test HTTP gọi OrdersController với callback giữ kho thử nghiệm. Bộ Auth PostgreSQL kiểm tra JWT thật.
+
+## Hoàn thiện và tích hợp
+
+- [Đặc tả use case Checkout](../requirements/use-case-checkout.md) mô tả luồng chính, các trường hợp lỗi và ca kiểm thử chấp nhận.
+- Bảng `PaymentAttempt` nhận nhiều lần thử thất bại trên cùng đơn nếu mỗi lần có khóa mới. Retry cùng khóa trả lại kết quả cũ. Test PostgreSQL chạy qua `PaymentsService` của TV1 để xác minh hai lần thất bại, replay và một lần thành công.
+- OrdersController của TV4 và JWT của TV5 đã có trên nền tích hợp. Cần inventory provider của TV4 để ứng dụng thực tế giữ nguyên liệu. Integration test Orders dùng callback giữ kho thử nghiệm, nên chưa thay thế kiểm thử toàn luồng TV6 với inventory thật.
+- Khi size bị xóa, khóa ngoại `OrderItem.sizeId` trở thành `null`. Nếu gửi lại yêu cầu dùng UUID size cũ, service trả `409` vì không còn đủ dữ liệu đối chiếu. Để hỗ trợ trường hợp này, nhóm cần giữ size đã bán trong catalog hoặc thống nhất bổ sung snapshot UUID size/request cùng TV2.
+
+## Kết quả kiểm tra
+
+- 82 test backend, 58 test frontend, 5 test giỏ, 4 test hợp đồng và 25 test HTTP/PostgreSQL đã đạt. Lint và build hai workspace đã đạt.
+- Prisma validate, 3 migration và seed đã chạy trên PostgreSQL thử nghiệm trong Docker.

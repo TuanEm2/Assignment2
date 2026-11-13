@@ -13,6 +13,7 @@ import {
   expect,
   it,
 } from '@jest/globals';
+import { PaymentMethod, PaymentOutcome } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import type { NextFunction, Request, Response } from 'express';
 import request from 'supertest';
@@ -23,6 +24,7 @@ import { ORDER_STOCK_RESERVATION } from '../src/orders/order-stock.port';
 import type { CreateOrderOptions } from '../src/orders/order-types';
 import { OrdersController } from '../src/orders/orders.controller';
 import { OrdersService } from '../src/orders/orders.service';
+import { PaymentsService } from '../src/payments/payments.service';
 import { PrismaService } from '../src/prisma/prisma.service';
 
 const databaseUrl = process.env.BREWLITE_ORDERS_TEST_DATABASE_URL;
@@ -159,9 +161,12 @@ describeWithDatabase('OrdersService with the TV2 PostgreSQL schema', () => {
         },
         { provide: ORDER_STOCK_RESERVATION, useValue: reserveStock },
       ],
-    }).overrideGuard(JwtAuthGuard).useValue({ canActivate: () => true }).compile();
+    })
+      .overrideGuard(JwtAuthGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
     const app: INestApplication<App> = module.createNestApplication();
-    // Supply a test principal while TV5's JWT guard is pending.
+    // This suite isolates Orders; the Auth PostgreSQL suite exercises the real JWT guard.
     app.use(
       (
         req: Request & { user?: { id: string } },
@@ -286,6 +291,74 @@ describeWithDatabase('OrdersService with the TV2 PostgreSQL schema', () => {
         select: { status: true },
       }),
     ).toEqual({ status: 'COMPLETED' });
+  });
+
+  it('records distinct failed payment attempts and can still settle the order once', async () => {
+    const previousMode = process.env.PAYMENT_MODE;
+    process.env.PAYMENT_MODE = 'mock';
+    const { id } = await service.createOrder(
+      userId,
+      { items: [item] },
+      { reserveStock },
+    );
+    const payment = new PaymentsService(prisma);
+    const dto = {
+      orderId: id,
+      method: PaymentMethod.MOCK_WALLET,
+      outcome: PaymentOutcome.FAILURE,
+    };
+    const firstKey = randomUUID();
+    const secondKey = randomUUID();
+
+    try {
+      await expect(
+        payment.mockPayment(userId, { ...dto, idempotencyKey: firstKey }),
+      ).resolves.toMatchObject({
+        status: 'PAYMENT_FAILED',
+        success: false,
+        replayed: false,
+      });
+      await expect(
+        payment.mockPayment(userId, { ...dto, idempotencyKey: secondKey }),
+      ).resolves.toMatchObject({
+        status: 'PAYMENT_FAILED',
+        success: false,
+        replayed: false,
+      });
+      await expect(
+        payment.mockPayment(userId, { ...dto, idempotencyKey: secondKey }),
+      ).resolves.toMatchObject({
+        status: 'PAYMENT_FAILED',
+        success: false,
+        replayed: true,
+      });
+      expect(
+        await prisma.paymentAttempt.count({ where: { orderId: id } }),
+      ).toBe(2);
+      expect(await prisma.payment.count({ where: { orderId: id } })).toBe(0);
+
+      await expect(
+        payment.mockPayment(userId, {
+          ...dto,
+          outcome: PaymentOutcome.SUCCESS,
+          idempotencyKey: randomUUID(),
+        }),
+      ).resolves.toMatchObject({
+        status: 'PAID',
+        success: true,
+        amount: 110000,
+      });
+      expect(
+        await prisma.paymentAttempt.count({ where: { orderId: id } }),
+      ).toBe(3);
+      expect(await prisma.payment.count({ where: { orderId: id } })).toBe(1);
+      expect(await availableStock()).toBe(3);
+    } finally {
+      if (previousMode === undefined) delete process.env.PAYMENT_MODE;
+      else process.env.PAYMENT_MODE = previousMode;
+      await prisma.paymentAttempt.deleteMany({ where: { orderId: id } });
+      await prisma.payment.deleteMany({ where: { orderId: id } });
+    }
   });
 
   it('does not reserve stock for a missing customer', async () => {

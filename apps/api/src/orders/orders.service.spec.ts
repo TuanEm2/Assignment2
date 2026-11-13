@@ -146,6 +146,9 @@ describe('order status transitions', () => {
       assertOrderStatusTransition('PENDING', 'PAYMENT_FAILED'),
     ).not.toThrow();
     expect(() =>
+      assertOrderStatusTransition('PAYMENT_FAILED', 'PAYMENT_FAILED'),
+    ).not.toThrow();
+    expect(() =>
       assertOrderStatusTransition('PAYMENT_FAILED', 'PAID'),
     ).not.toThrow();
     expect(() => assertOrderStatusTransition('PREPARING', 'COMPLETED')).toThrow(

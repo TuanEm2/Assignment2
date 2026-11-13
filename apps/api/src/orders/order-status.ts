@@ -3,7 +3,8 @@ import type { OrderStatus } from '@prisma/client';
 
 const transitions: Record<OrderStatus, readonly OrderStatus[]> = {
   PENDING: ['PAID', 'PAYMENT_FAILED', 'CANCELLED'],
-  PAYMENT_FAILED: ['PAID', 'CANCELLED'],
+  // A new failed attempt can be recorded while the order remains unpaid.
+  PAYMENT_FAILED: ['PAYMENT_FAILED', 'PAID', 'CANCELLED'],
   PAID: ['PREPARING', 'CANCELLED'],
   PREPARING: ['READY'],
   READY: ['COMPLETED'],
