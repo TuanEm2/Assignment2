@@ -21,8 +21,10 @@ export interface LoginResponse {
 export type LoginHandler = (credentials: { email: string; password: string }) => Promise<LoginResponse>;
 
 async function defaultLoginHandler(credentials: { email: string; password: string }): Promise<LoginResponse> {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
-  const prefix = apiUrl.endsWith('/api') ? apiUrl : `${apiUrl}/api`;
+  const configured = process.env.NEXT_PUBLIC_API_URL?.trim();
+  const base = (configured || 'http://localhost:4000').replace(/\/+$/, '');
+  const prefix = base.endsWith('/api') ? base : `${base}/api`;
+
   const res = await fetch(`${prefix}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -31,7 +33,15 @@ async function defaultLoginHandler(credentials: { email: string; password: strin
 
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.message || 'Đăng nhập không thành công. Vui lòng kiểm tra lại thông tin.');
+    let msg = 'Đăng nhập không thành công. Vui lòng kiểm tra lại thông tin.';
+    if (res.status === 401) {
+      msg = 'Email hoặc mật khẩu không chính xác.';
+    } else if (Array.isArray(errorData.message)) {
+      msg = errorData.message.join(', ');
+    } else if (typeof errorData.message === 'string') {
+      msg = errorData.message;
+    }
+    throw new Error(msg);
   }
 
   return res.json();

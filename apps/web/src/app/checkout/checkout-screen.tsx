@@ -2,15 +2,22 @@
 
 import Link from 'next/link';
 import { useClientReady } from '@/lib/client-ready';
+import { useCheckoutOrchestrator } from '@/lib/checkout/use-checkout-orchestrator';
 import { selectIsAuthenticated, useAuthStore } from '@/stores/auth-store';
 import { selectCartSubtotal, useCartStore } from '@/stores/cart-store';
-import { CheckoutView } from './checkout-view';
+import { CheckoutView, type PaymentMethod } from './checkout-view';
 
 export function CheckoutScreen() {
   const ready = useClientReady();
   const signedIn = useAuthStore(selectIsAuthenticated);
   const items = useCartStore((state) => state.items);
   const subtotal = useCartStore(selectCartSubtotal);
+
+  const { state, handlePay, handleCheckStatus } = useCheckoutOrchestrator();
+
+  const onPay = (method: PaymentMethod) => {
+    handlePay(items, subtotal, method);
+  };
 
   return (
     <main lang="vi" className="min-h-dvh bg-[#f7f3ec] px-4 py-8 text-[#30251d] sm:px-8 sm:py-12">
@@ -21,7 +28,7 @@ export function CheckoutScreen() {
         <h1 className="mt-4 text-3xl font-bold tracking-tight">Thanh toán</h1>
         {!ready ? (
           <p role="status" className="mt-6">Đang tải đơn hàng…</p>
-        ) : items.length === 0 ? (
+        ) : items.length === 0 && state.phase !== 'paid' ? (
           <p className="mt-6">Giỏ hàng của bạn đang trống.</p>
         ) : !signedIn ? (
           <section className="mt-6 rounded-xl border border-stone-200 bg-white p-5">
@@ -31,7 +38,13 @@ export function CheckoutScreen() {
             </Link>
           </section>
         ) : (
-          <CheckoutView items={items} subtotal={subtotal} state={{ phase: 'review' }} />
+          <CheckoutView
+            items={items}
+            subtotal={subtotal}
+            state={state}
+            onPay={onPay}
+            onCheckStatus={handleCheckStatus}
+          />
         )}
       </div>
     </main>

@@ -19,8 +19,10 @@ export interface RegisterResponse {
 export type RegisterHandler = (payload: { email: string; password: string; name?: string }) => Promise<RegisterResponse>;
 
 async function defaultRegisterHandler(payload: { email: string; password: string; name?: string }): Promise<RegisterResponse> {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
-  const prefix = apiUrl.endsWith('/api') ? apiUrl : `${apiUrl}/api`;
+  const configured = process.env.NEXT_PUBLIC_API_URL?.trim();
+  const base = (configured || 'http://localhost:4000').replace(/\/+$/, '');
+  const prefix = base.endsWith('/api') ? base : `${base}/api`;
+
   const res = await fetch(`${prefix}/auth/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -29,7 +31,15 @@ async function defaultRegisterHandler(payload: { email: string; password: string
 
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.message || 'Đăng ký không thành công. Vui lòng kiểm tra lại thông tin.');
+    let msg = 'Đăng ký không thành công. Vui lòng kiểm tra lại thông tin.';
+    if (res.status === 409) {
+      msg = 'Email này đã được sử dụng. Vui lòng dùng email khác hoặc đăng nhập.';
+    } else if (Array.isArray(errorData.message)) {
+      msg = errorData.message.join(', ');
+    } else if (typeof errorData.message === 'string') {
+      msg = errorData.message;
+    }
+    throw new Error(msg);
   }
 
   return res.json();
@@ -57,8 +67,8 @@ export function RegisterForm({ onRegister = defaultRegisterHandler }: { onRegist
       return;
     }
 
-    if (password.length < 6) {
-      setError('Mật khẩu phải có tối thiểu 6 ký tự.');
+    if (password.length < 12) {
+      setError('Mật khẩu phải có tối thiểu 12 ký tự theo chính sách bảo mật.');
       return;
     }
 
@@ -124,7 +134,8 @@ export function RegisterForm({ onRegister = defaultRegisterHandler }: { onRegist
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Tối thiểu 6 ký tự"
+              placeholder="Tối thiểu 12 ký tự"
+              maxLength={128}
               disabled={loading}
               required
             />

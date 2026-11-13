@@ -1,0 +1,111 @@
+@startuml sequence-checkout
+!theme plain
+autonumber
+skinparam BoxPadding 10
+skinparam ParticipantPadding 15
+
+actor "Customer\n(Người dùng)" as User
+participant "Next.js UI\n(Mobile Web)" as UI
+participant "NestJS API\n(Orders & Auth)" as API
+database "PostgreSQL\n(Prisma ORM)" as DB
+participant "Mock Payment\nService" as Payment
+
+title Sequence Diagram — Quy trình Đặt hàng & Thanh toán BrewLite (Task 2.2)
+
+== 1. Xác thực & Chuẩn bị giỏ hàng ==
+User -> UI: Bấm "Thanh toán" tại /cart
+activate UI
+UI -> UI: Kiểm tra Auth State trong auth-store (Zustand)
+alt Người dùng chưa đăng nhập
+    UI --> User: Điều hướng sang /login?redirect=/checkout
+    User -> UI: Điền email & password (>= 12 ký tự)
+    UI -> API: POST /api/auth/login { email, password }
+    activate API
+    API -> DB: Tìm user & verify scrypt password hash
+    activate DB
+    DB --> API: User profile hợp lệ
+    deactivate DB
+    API --> UI: 200 OK { accessToken, user }
+    deactivate API
+    UI -> UI: Lưu accessToken vào localStorage & state
+    UI --> User: Chuyển tiếp tới màn hình /checkout
+end
+
+== 2. Điều phối Tạo đơn hàng (Orchestration) ==
+User -> UI: Chọn phương thức thanh toán (VÍ / THẺ) & Bấm "Xác nhận thanh toán"
+UI -> UI: Tạo Idempotency-Key (UUID duy nhất)
+UI -> UI: Chuẩn bị payload { items: [{ productId, sizeId, toppingIds, quantity }] }
+note right of UI: Không gửi giá client lên server\nđể chống gian lận giá
+
+UI -> API: POST /api/orders\nHeaders: [Authorization: Bearer <JWT>, Idempotency-Key: <UUID>]\nBody: { items }
+activate API
+
+API -> API: JwtAuthGuard: Giải mã token, trích xuất userId
+alt Token không hợp lệ hoặc hết hạn
+    API --> UI: 401 Unauthorized
+    UI --> User: Thông báo phiên đăng nhập hết hạn, yêu cầu login lại
+end
+
+API -> API: Validate items payload (UUID, số lượng hợp lệ)
+API -> DB: Kiểm tra Idempotency-Key trong bảng Order
+activate DB
+DB --> API: Chưa tồn tại đơn với Idempotency-Key này
+deactivate DB
+
+== 3. Giao dịch Database (Transaction): Định giá & Trừ kho ==
+API -> DB: BEGIN TRANSACTION
+activate DB
+API -> DB: Truy vấn giá gốc, giá size, giá topping từ database
+DB --> API: Bảng giá chính thức phía server
+API -> API: Tính lại tổng tiền đơn hàng (Server-side Pricing)
+
+API -> DB: Kiểm tra & Trừ tồn kho an toàn (Inventory / Ingredients)
+alt Hết hàng hoặc tồn kho không đủ
+    API -> DB: ROLLBACK TRANSACTION
+    DB --> API: Rollback thành công
+    API --> UI: 400 Bad Request / 503 (Hết hàng)
+    UI --> User: Báo lỗi hết hàng, giữ nguyên giỏ hàng để chọn lại
+else Tồn kho hợp lệ
+    API -> DB: INSERT INTO "Order" (userId, total, status='PENDING')\nINSERT INTO "OrderItem" (...)\nINSERT INTO "Payment" (status='PENDING')
+    API -> DB: COMMIT TRANSACTION
+    DB --> API: Commit thành công, trả về { orderId, total }
+    deactivate DB
+    API --> UI: 201 Created { id: orderId, total, status: 'PENDING' }
+    deactivate API
+end
+
+== 4. Xử lý Thanh toán (Mock Payment) & Idempotency Retry ==
+UI -> Payment: POST /api/payments { orderId, amount, method, idempotencyKey }
+activate Payment
+
+alt Thanh toán thành công
+    Payment --> UI: 200 OK { success: true, transactionId, status: 'PAID' }
+    deactivate Payment
+    UI -> API: Cập nhật trạng thái đơn: status = 'PAID'
+    activate API
+    API -> DB: UPDATE "Order" SET status = 'PAID' WHERE id = orderId
+    activate DB
+    DB --> API: Updated
+    deactivate DB
+    API --> UI: 200 OK
+    deactivate API
+
+    UI -> UI: Xóa giỏ hàng (clearCart)
+    UI --> User: Hiển thị màn hình "Thanh toán thành công" (Mã đơn & Tổng tiền)
+else Thanh toán thất bại hoặc timeout
+    Payment --> UI: 400 / 500 Payment Failed
+    UI -> UI: Giữ nguyên giỏ hàng, chuyển trạng thái sang "failed"
+    UI --> User: Báo lỗi thanh toán, hiển thị nút "Thử lại" (Retry)
+
+    == Nhánh Retry (Gửi lại cùng Idempotency Key) ==
+    User -> UI: Bấm "Thử lại"
+    UI -> Payment: POST /api/payments (cùng idempotencyKey)
+    activate Payment
+    Payment -> Payment: Nhận diện idempotencyKey trùng lặp -> Trả lại kết quả giao dịch cũ
+    Payment --> UI: 200 OK (Đã xử lý idempotency, không trừ tiền trùng)
+    deactivate Payment
+    UI -> UI: Xóa giỏ hàng & hiển thị kết quả thành công
+    UI --> User: Xác nhận thanh toán thành công
+end
+
+@enduml

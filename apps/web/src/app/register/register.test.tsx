@@ -32,8 +32,8 @@ describe('RegisterForm (Component Test TV6)', () => {
     render(<RegisterForm />);
 
     await user.type(screen.getByLabelText(/email/i), 'new@brewlite.vn');
-    await user.type(screen.getByLabelText(/^mật khẩu/i), '123456');
-    await user.type(screen.getByLabelText(/xác nhận mật khẩu/i), '654321');
+    await user.type(screen.getByLabelText(/^mật khẩu/i), 'BrewLitePassword123');
+    await user.type(screen.getByLabelText(/xác nhận mật khẩu/i), 'BrewLitePassword999');
     await user.click(screen.getByRole('button', { name: /đăng ký ngay/i }));
 
     expect(screen.getByRole('alert')).toHaveTextContent(/không khớp/i);
@@ -50,15 +50,15 @@ describe('RegisterForm (Component Test TV6)', () => {
 
     await user.type(screen.getByLabelText(/họ và tên/i), 'Le Thi B');
     await user.type(screen.getByLabelText(/email/i), 'reg@brewlite.vn');
-    await user.type(screen.getByLabelText(/^mật khẩu/i), '123456');
-    await user.type(screen.getByLabelText(/xác nhận mật khẩu/i), '123456');
+    await user.type(screen.getByLabelText(/^mật khẩu/i), 'BrewLite@2026Secure');
+    await user.type(screen.getByLabelText(/xác nhận mật khẩu/i), 'BrewLite@2026Secure');
     await user.click(screen.getByRole('button', { name: /đăng ký ngay/i }));
 
     await waitFor(() => {
       expect(mockRegister).toHaveBeenCalledWith({
         name: 'Le Thi B',
         email: 'reg@brewlite.vn',
-        password: '123456',
+        password: 'BrewLite@2026Secure',
       });
       expect(useAuthStore.getState().isAuthenticated).toBe(true);
       expect(mockPush).toHaveBeenCalledWith('/cart');
