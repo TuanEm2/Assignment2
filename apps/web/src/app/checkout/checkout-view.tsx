@@ -35,9 +35,17 @@ export function CheckoutView({ items, subtotal, state, onPay, onCheckStatus }: C
         <h2 className="text-xl font-bold text-green-800">Thanh toán thành công</h2>
         <p className="mt-2 break-all">Mã đơn {state.orderId}</p>
         <p className="mt-1">Đã thanh toán {vnd.format(state.orderTotal)}</p>
-        <Link href="/menu" className="mt-4 inline-block font-semibold text-amber-900 underline">
-          Về menu
-        </Link>
+        <div className="mt-4 flex flex-wrap gap-4">
+          <Link href={`/orders/${state.orderId}`} className="font-semibold text-amber-900 underline">
+            Xem chi tiết đơn
+          </Link>
+          <Link href="/orders" className="font-semibold text-amber-900 underline">
+            Lịch sử đơn hàng
+          </Link>
+          <Link href="/menu" className="font-semibold text-amber-900 underline">
+            Về menu
+          </Link>
+        </div>
       </section>
     );
   }

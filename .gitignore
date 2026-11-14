@@ -19,6 +19,8 @@ coverage/
 # Logs
 *.Log
 
-# OS
+# OS & IDE
 .DS_Store
 Thumbs.db
+.idea/
+*.tsbuildinfo
