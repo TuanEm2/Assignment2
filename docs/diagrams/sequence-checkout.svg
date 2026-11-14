@@ -1,0 +1,162 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 1200" width="100%" height="100%" style="background-color:#ffffff;font-family:system-ui,-apple-system,sans-serif;">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-facing">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#0284c7" />
+    </marker>
+    <marker id="arrow-return" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-facing">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b" />
+    </marker>
+    <marker id="arrow-error" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-facing">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#ef4444" />
+    </marker>
+    <marker id="arrow-success" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-facing">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#16a34a" />
+    </marker>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.08" />
+    </filter>
+  </defs>
+
+  <!-- Title -->
+  <text x="550" y="40" text-anchor="middle" font-size="22" font-weight="bold" fill="#0f172a">Sequence Diagram — Luồng Đặt Hàng &amp; Thanh Toán BrewLite (Task 2.2)</text>
+  <text x="550" y="65" text-anchor="middle" font-size="14" fill="#64748b">Lifelines: Customer → Next.js UI → NestJS API → PostgreSQL (Prisma) → Mock Payment</text>
+
+  <!-- Lifeline Columns -->
+  <!-- 1. Customer: x=100 -->
+  <!-- 2. Next.js UI: x=325 -->
+  <!-- 3. NestJS API: x=550 -->
+  <!-- 4. Database: x=775 -->
+  <!-- 5. Mock Payment: x=1000 -->
+
+  <!-- Lifeline Header Boxes -->
+  <g filter="url(#shadow)">
+    <rect x="30" y="90" width="140" height="50" rx="8" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.5" />
+    <text x="100" y="113" text-anchor="middle" font-size="14" font-weight="bold" fill="#0f172a">Customer</text>
+    <text x="100" y="130" text-anchor="middle" font-size="11" fill="#64748b">(Người dùng)</text>
+
+    <rect x="255" y="90" width="140" height="50" rx="8" fill="#e0f2fe" stroke="#38bdf8" stroke-width="1.5" />
+    <text x="325" y="113" text-anchor="middle" font-size="14" font-weight="bold" fill="#0369a1">Next.js UI</text>
+    <text x="325" y="130" text-anchor="middle" font-size="11" fill="#0284c7">(Mobile-first PWA)</text>
+
+    <rect x="480" y="90" width="140" height="50" rx="8" fill="#fef3c7" stroke="#f59e0b" stroke-width="1.5" />
+    <text x="550" y="113" text-anchor="middle" font-size="14" font-weight="bold" fill="#92400e">NestJS API</text>
+    <text x="550" y="130" text-anchor="middle" font-size="11" fill="#b45309">(Auth &amp; Orders)</text>
+
+    <rect x="705" y="90" width="140" height="50" rx="8" fill="#dcfce7" stroke="#22c55e" stroke-width="1.5" />
+    <text x="775" y="113" text-anchor="middle" font-size="14" font-weight="bold" fill="#166534">PostgreSQL</text>
+    <text x="775" y="130" text-anchor="middle" font-size="11" fill="#15803d">(Prisma ORM)</text>
+
+    <rect x="930" y="90" width="140" height="50" rx="8" fill="#f3e8ff" stroke="#a855f7" stroke-width="1.5" />
+    <text x="1000" y="113" text-anchor="middle" font-size="14" font-weight="bold" fill="#6b21a8">Payment Service</text>
+    <text x="1000" y="130" text-anchor="middle" font-size="11" fill="#7e22ce">(Mock Ví / Thẻ)</text>
+  </g>
+
+  <!-- Lifeline Dashed Lines -->
+  <line x1="100" y1="140" x2="100" y2="1140" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="6,6" />
+  <line x1="325" y1="140" x2="325" y2="1140" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="6,6" />
+  <line x1="550" y1="140" x2="550" y2="1140" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="6,6" />
+  <line x1="775" y1="140" x2="775" y2="1140" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="6,6" />
+  <line x1="1000" y1="140" x2="1000" y2="1140" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="6,6" />
+
+  <!-- SECTION 1: AUTHENTICATION -->
+  <rect x="50" y="160" width="1000" height="25" rx="4" fill="#f1f5f9" />
+  <text x="60" y="177" font-size="12" font-weight="bold" fill="#475569">1. Xác thực người dùng (Auth Check &amp; Login flow)</text>
+
+  <line x1="100" y1="210" x2="325" y2="210" stroke="#0284c7" stroke-width="1.5" marker-end="url(#arrow)" />
+  <text x="212" y="202" text-anchor="middle" font-size="12" fill="#0f172a">1. Bấm "Thanh toán" tại /cart</text>
+
+  <rect x="320" y="210" width="10" height="40" fill="#38bdf8" />
+  <path d="M 330 225 C 360 225 360 245 330 245" fill="none" stroke="#0284c7" stroke-width="1.5" marker-end="url(#arrow)" />
+  <text x="365" y="238" font-size="11" fill="#475569">Kiểm tra auth-store</text>
+
+  <line x1="325" y1="270" x2="550" y2="270" stroke="#0284c7" stroke-width="1.5" marker-end="url(#arrow)" />
+  <text x="437" y="262" text-anchor="middle" font-size="12" fill="#0f172a">2. POST /api/auth/login { email, password }</text>
+
+  <line x1="550" y1="295" x2="775" y2="295" stroke="#0284c7" stroke-width="1.5" marker-end="url(#arrow)" />
+  <text x="662" y="287" text-anchor="middle" font-size="12" fill="#0f172a">3. Query User &amp; verify scrypt hash</text>
+
+  <line x1="775" y1="320" x2="550" y2="320" stroke="#64748b" stroke-width="1.5" stroke-dasharray="4,4" marker-end="url(#arrow-return)" />
+  <text x="662" y="312" text-anchor="middle" font-size="11" fill="#64748b">User record hợp lệ</text>
+
+  <line x1="550" y1="345" x2="325" y2="345" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="4,4" marker-end="url(#arrow-success)" />
+  <text x="437" y="337" text-anchor="middle" font-size="12" font-weight="600" fill="#166534">4. 200 OK { accessToken, user }</text>
+
+  <!-- SECTION 2: CHECKOUT ORCHESTRATION -->
+  <rect x="50" y="375" width="1000" height="25" rx="4" fill="#f1f5f9" />
+  <text x="60" y="392" font-size="12" font-weight="bold" fill="#475569">2. Điều phối Tạo đơn hàng (Checkout Orchestration)</text>
+
+  <line x1="100" y1="425" x2="325" y2="425" stroke="#0284c7" stroke-width="1.5" marker-end="url(#arrow)" />
+  <text x="212" y="417" text-anchor="middle" font-size="12" fill="#0f172a">5. Chọn Ví/Thẻ &amp; bấm "Xác nhận thanh toán"</text>
+
+  <path d="M 330 440 C 370 440 370 465 330 465" fill="none" stroke="#0284c7" stroke-width="1.5" marker-end="url(#arrow)" />
+  <text x="375" y="455" font-size="11" fill="#475569">Sinh Idempotency-Key &amp; format payload</text>
+
+  <line x1="325" y1="485" x2="550" y2="485" stroke="#0284c7" stroke-width="2" marker-end="url(#arrow)" />
+  <text x="437" y="475" text-anchor="middle" font-size="12" font-weight="bold" fill="#0f172a">6. POST /api/orders</text>
+  <text x="437" y="498" text-anchor="middle" font-size="10" fill="#64748b">Headers: [Authorization: Bearer JWT, Idempotency-Key]</text>
+
+  <path d="M 555 510 C 585 510 585 530 555 530" fill="none" stroke="#f59e0b" stroke-width="1.5" marker-end="url(#arrow)" />
+  <text x="590" y="523" font-size="11" fill="#92400e">JwtAuthGuard trích xuất userId</text>
+
+  <!-- SECTION 3: TRANSACTION & STOCK RESERVATION -->
+  <rect x="50" y="550" width="1000" height="25" rx="4" fill="#f1f5f9" />
+  <text x="60" y="567" font-size="12" font-weight="bold" fill="#475569">3. Giao dịch Database: Định giá server-side &amp; Trừ kho an toàn</text>
+
+  <line x1="550" y1="595" x2="775" y2="595" stroke="#0284c7" stroke-width="1.5" marker-end="url(#arrow)" />
+  <text x="662" y="587" text-anchor="middle" font-size="12" fill="#0f172a">7. BEGIN TRANSACTION (Prisma)</text>
+
+  <line x1="550" y1="620" x2="775" y2="620" stroke="#0284c7" stroke-width="1.5" marker-end="url(#arrow)" />
+  <text x="662" y="612" text-anchor="middle" font-size="12" fill="#0f172a">8. Lấy bảng giá gốc/size/topping &amp; tính lại tiền</text>
+
+  <line x1="550" y1="645" x2="775" y2="645" stroke="#0284c7" stroke-width="1.5" marker-end="url(#arrow)" />
+  <text x="662" y="637" text-anchor="middle" font-size="12" fill="#0f172a">9. Trừ tồn kho nguyên liệu theo định lượng</text>
+
+  <!-- Alt Box: Stock ok or fail -->
+  <rect x="470" y="665" width="370" height="60" rx="4" fill="#fef2f2" stroke="#f87171" stroke-dasharray="4,4" />
+  <text x="480" y="682" font-size="11" font-weight="bold" fill="#b91c1c">[alt: Hết hàng hoặc tồn kho không đủ]</text>
+  <line x1="775" y1="695" x2="550" y2="695" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="4,4" marker-end="url(#arrow-error)" />
+  <text x="662" y="710" text-anchor="middle" font-size="11" fill="#b91c1c">ROLLBACK &amp; trả 400 Bad Request / 503</text>
+
+  <line x1="550" y1="745" x2="775" y2="745" stroke="#16a34a" stroke-width="1.5" marker-end="url(#arrow)" />
+  <text x="662" y="737" text-anchor="middle" font-size="12" fill="#166534">10. INSERT Order (status='PENDING'), OrderItem, Payment</text>
+
+  <line x1="775" y1="770" x2="550" y2="770" stroke="#16a34a" stroke-width="1.5" marker-end="url(#arrow-return)" />
+  <text x="662" y="762" text-anchor="middle" font-size="12" fill="#166534">11. COMMIT TRANSACTION (orderId, total)</text>
+
+  <line x1="550" y1="795" x2="325" y2="795" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="4,4" marker-end="url(#arrow-success)" />
+  <text x="437" y="787" text-anchor="middle" font-size="12" font-weight="600" fill="#166534">12. 201 Created { id: orderId, total, status: 'PENDING' }</text>
+
+  <!-- SECTION 4: PAYMENT & IDEMPOTENCY RETRY -->
+  <rect x="50" y="820" width="1000" height="25" rx="4" fill="#f1f5f9" />
+  <text x="60" y="837" font-size="12" font-weight="bold" fill="#475569">4. Xử lý Thanh toán (Mock Payment) &amp; Nhánh Retry Idempotency</text>
+
+  <line x1="325" y1="865" x2="1000" y2="865" stroke="#0284c7" stroke-width="2" marker-end="url(#arrow)" />
+  <text x="662" y="857" text-anchor="middle" font-size="12" font-weight="bold" fill="#0f172a">13. POST /api/payments { orderId, amount, method, idempotencyKey }</text>
+
+  <!-- Alt Success -->
+  <rect x="250" y="885" width="800" height="95" rx="6" fill="#f0fdf4" stroke="#86efac" />
+  <text x="260" y="903" font-size="11" font-weight="bold" fill="#166534">[Nhánh 1: Thanh toán thành công]</text>
+  <line x1="1000" y1="920" x2="325" y2="920" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="4,4" marker-end="url(#arrow-success)" />
+  <text x="662" y="912" text-anchor="middle" font-size="12" fill="#166534">14. 200 OK { success: true, transactionId, status: 'PAID' }</text>
+
+  <path d="M 330 935 C 370 935 370 955 330 955" fill="none" stroke="#16a34a" stroke-width="1.5" marker-end="url(#arrow-success)" />
+  <text x="375" y="948" font-size="11" fill="#166534">Xóa giỏ (clearCart) &amp; setPhase('paid')</text>
+
+  <line x1="325" y1="970" x2="100" y2="970" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="4,4" marker-end="url(#arrow-success)" />
+  <text x="212" y="962" text-anchor="middle" font-size="12" font-weight="600" fill="#166534">15. Màn hình "Thanh toán thành công" (Mã đơn &amp; Tổng tiền)</text>
+
+  <!-- Alt Retry / Idempotency -->
+  <rect x="250" y="995" width="800" height="120" rx="6" fill="#fffbeb" stroke="#fcd34d" />
+  <text x="260" y="1013" font-size="11" font-weight="bold" fill="#92400e">[Nhánh 2: Mạng chập chờn / Thử lại (Idempotency Retry)]</text>
+  <line x1="100" y1="1035" x2="325" y2="1035" stroke="#d97706" stroke-width="1.5" marker-end="url(#arrow)" />
+  <text x="212" y="1027" text-anchor="middle" font-size="12" fill="#92400e">16. Bấm "Thử lại"</text>
+
+  <line x1="325" y1="1060" x2="1000" y2="1060" stroke="#d97706" stroke-width="1.5" marker-end="url(#arrow)" />
+  <text x="662" y="1052" text-anchor="middle" font-size="12" fill="#92400e">17. POST /api/payments (Gửi lại CÙNG idempotencyKey)</text>
+
+  <path d="M 1005 1070 C 1035 1070 1035 1090 1005 1090" fill="none" stroke="#d97706" stroke-width="1.5" marker-end="url(#arrow)" />
+  <text x="880" y="1085" font-size="11" fill="#92400e">Nhận diện key trùng: Không trừ tiền 2 lần</text>
+
+  <line x1="1000" y1="1105" x2="325" y2="1105" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="4,4" marker-end="url(#arrow-success)" />
+  <text x="662" y="1098" text-anchor="middle" font-size="12" fill="#166534">18. 200 OK (Trả về kết quả giao dịch cũ an toàn)</text>
+</svg>

@@ -1,0 +1,30 @@
+@startuml
+!pragma layout smetana
+left to right direction
+skinparam shadowing false
+skinparam defaultFontName "Segoe UI"
+skinparam usecase {
+  BackgroundColor #FFFAF1
+  BorderColor #8B674D
+  FontColor #32241B
+}
+title BrewLite · Use case Checkout
+actor "Khách hàng" as Customer
+actor "Dịch vụ thanh toán\nmô phỏng" as Payment
+rectangle "BrewLite" {
+  usecase "Đặt và thanh toán\nđơn hàng" as Checkout
+  usecase "Xác thực phiên" as Auth
+  usecase "Tạo đơn theo giá backend\nvà giữ nguyên liệu" as Create
+  usecase "Xử lý thanh toán" as Pay
+  usecase "Kiểm tra trạng thái\nthanh toán" as Status
+  usecase "Thử thanh toán lại" as Retry
+}
+Customer --> Checkout
+Customer --> Status
+Customer --> Retry
+Checkout ..> Auth : <<include>>
+Checkout ..> Create : <<include>>
+Checkout ..> Pay : <<include>>
+Retry ..> Pay : <<extend>>\n[kết quả thất bại đã xác nhận]
+Payment -- Pay
+@enduml

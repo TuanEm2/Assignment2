@@ -1,0 +1,25 @@
+{
+  "name": "brewlite-assignment2",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev -w apps/web",
+    "dev:api": "npm run start:dev -w apps/api",
+    "build:web": "npm run build -w apps/web",
+    "build:api": "npm run build -w apps/api",
+    "db:generate": "npm run db:generate -w apps/api",
+    "db:validate": "npm run db:validate -w apps/api",
+    "db:migrate": "npm run db:migrate -w apps/api",
+    "db:seed": "npm run db:seed -w apps/api",
+    "lint": "npm run lint --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "test:cart": "node --experimental-strip-types --test tests/cart-calculations.test.mjs",
+    "test:integration": "node --experimental-strip-types --test tests/integration/*.test.mjs",
+    "test:smoke": "node --experimental-strip-types --test tests/smoke/smoke-test.mjs",
+    "test:inventory": "npm run test -w apps/api -- --runInBand --runTestsByPath src/inventory/inventory.service.spec.ts",
+    "test:inventory:postgres": "npm run test:e2e -w apps/api -- --runInBand --runTestsByPath test/inventory-postgres.e2e-spec.ts"
+  }
+}

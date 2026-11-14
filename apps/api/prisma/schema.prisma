@@ -1,0 +1,204 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum SizeName {
+  S
+  M
+  L
+}
+
+model Product {
+  id         String           @id @default(uuid()) @db.Uuid
+  slug       String           @unique
+  name       String
+  price      Int
+  imageUrl   String
+  sizes      ProductSize[]
+  toppings   ProductTopping[]
+  stock      Stock?
+  orderItems OrderItem[]
+}
+
+model ProductSize {
+  id         String                  @id @default(uuid()) @db.Uuid
+  productId  String                  @db.Uuid
+  name       SizeName
+  price      Int
+  product    Product                 @relation(fields: [productId], references: [id], onDelete: Cascade)
+  orderItems OrderItem[]
+  recipe     ProductSizeIngredient[]
+
+  @@unique([productId, name])
+}
+
+model ProductTopping {
+  id        String                     @id @default(uuid()) @db.Uuid
+  productId String                     @db.Uuid
+  name      String
+  price     Int
+  product   Product                    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  recipe    ProductToppingIngredient[]
+
+  @@unique([productId, name])
+}
+
+enum UserRole {
+  CUSTOMER
+  STAFF
+  ADMIN
+}
+
+enum OrderStatus {
+  PENDING
+  PAYMENT_FAILED
+  PAID
+  PREPARING
+  READY
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  MOCK_WALLET
+  MOCK_CARD
+}
+
+enum PaymentOutcome {
+  SUCCESS
+  FAILURE
+}
+
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  email        String   @unique
+  name         String?
+  passwordHash String
+  role         UserRole @default(CUSTOMER)
+  createdAt    DateTime @default(now())
+  orders       Order[]
+}
+
+/// Tồn theo sản phẩm từ bản cũ. Kho nguyên liệu dùng Ingredient.stock.
+model Stock {
+  productId String  @id @db.Uuid
+  quantity  Int     @default(0)
+  version   Int     @default(0)
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+enum IngredientUnit {
+  G
+  ML
+  PIECE
+}
+
+model Ingredient {
+  id             String                     @id @default(uuid()) @db.Uuid
+  code           String                     @unique
+  name           String
+  unit           IngredientUnit
+  stock          Int                        @default(0)
+  version        Int                        @default(0)
+  sizeRecipes    ProductSizeIngredient[]
+  toppingRecipes ProductToppingIngredient[]
+  orderUsages    OrderIngredient[]
+}
+
+model ProductSizeIngredient {
+  sizeId       String      @db.Uuid
+  ingredientId String      @db.Uuid
+  quantity     Int
+  size         ProductSize @relation(fields: [sizeId], references: [id], onDelete: Cascade)
+  ingredient   Ingredient  @relation(fields: [ingredientId], references: [id], onDelete: Restrict)
+
+  @@id([sizeId, ingredientId])
+  @@index([ingredientId])
+}
+
+model ProductToppingIngredient {
+  toppingId    String         @db.Uuid
+  ingredientId String         @db.Uuid
+  quantity     Int
+  topping      ProductTopping @relation(fields: [toppingId], references: [id], onDelete: Cascade)
+  ingredient   Ingredient     @relation(fields: [ingredientId], references: [id], onDelete: Restrict)
+
+  @@id([toppingId, ingredientId])
+  @@index([ingredientId])
+}
+
+model Order {
+  id               String            @id @default(uuid()) @db.Uuid
+  userId           String            @db.Uuid
+  idempotencyKey   String?
+  status           OrderStatus       @default(PENDING)
+  total            Int
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  stockReleasedAt DateTime?
+  user             User              @relation(fields: [userId], references: [id], onDelete: Restrict)
+  items            OrderItem[]
+  payment          Payment?
+  attempts         PaymentAttempt[]
+  ingredientUsages OrderIngredient[]
+
+  @@unique([userId, idempotencyKey])
+  @@index([userId, createdAt])
+}
+
+/// Tổng lượng nguyên liệu đã giữ cho đơn, theo đơn vị gốc của Ingredient.
+model OrderIngredient {
+  orderId      String     @db.Uuid
+  ingredientId String     @db.Uuid
+  quantity     Int
+  order        Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Restrict)
+
+  @@id([orderId, ingredientId])
+  @@index([ingredientId])
+}
+
+model OrderItem {
+  id          String       @id @default(uuid()) @db.Uuid
+  orderId     String       @db.Uuid
+  productId   String       @db.Uuid
+  sizeId      String?      @db.Uuid
+  productName String
+  sizeName    SizeName?
+  toppings    Json         @default("[]")
+  quantity    Int
+  unitPrice   Int
+  lineTotal   Int
+  order       Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product     Product      @relation(fields: [productId], references: [id], onDelete: Restrict)
+  size        ProductSize? @relation(fields: [sizeId], references: [id], onDelete: SetNull)
+
+  @@index([orderId])
+}
+
+model Payment {
+  id        String        @id @default(uuid()) @db.Uuid
+  orderId   String        @unique @db.Uuid
+  method    PaymentMethod
+  amount    Int
+  createdAt DateTime      @default(now())
+  order     Order         @relation(fields: [orderId], references: [id], onDelete: Restrict)
+}
+
+model PaymentAttempt {
+  id             String         @id @default(uuid()) @db.Uuid
+  orderId        String         @db.Uuid
+  idempotencyKey String
+  method         PaymentMethod
+  outcome        PaymentOutcome
+  amount         Int
+  createdAt      DateTime       @default(now())
+  order          Order          @relation(fields: [orderId], references: [id], onDelete: Restrict)
+
+  @@unique([orderId, idempotencyKey])
+}
