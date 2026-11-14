@@ -18,4 +18,6 @@ ENV NODE_ENV=production
 EXPOSE 4000
 
 # Migrate only after PostgreSQL is healthy; exit on migration failure.
-CMD ["sh", "-c", "npm run db:migrate && npm run start:prod -w apps/api"]
+# Compose migrates at startup; Render runs migration in pre-deploy.
+# RUN_MIGRATIONS_ON_STARTUP=false requires a separately configured pre-deploy migration.
+CMD ["sh", "-c", "if [ \"${RUN_MIGRATIONS_ON_STARTUP:-true}\" = \"true\" ]; then npm run db:migrate; fi; exec npm run start:prod -w apps/api"]

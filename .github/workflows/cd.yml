@@ -1,0 +1,173 @@
+name: BrewLite CD - GHCR to Render
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: 'Release current main revision or redeploy an older SHA to roll back'
+        required: true
+        default: release
+        type: choice
+        options:
+          - release
+          - rollback
+      rollback_sha:
+        description: 'Full 40-character Git SHA of the previously working release (rollback only)'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: brewlite-production
+  cancel-in-progress: false
+
+jobs:
+  quality:
+    name: Quality gate
+    uses: ./.github/workflows/ci.yml
+
+  prepare:
+    name: Verify release / rollback ref
+    needs: quality
+    runs-on: ubuntu-latest
+    outputs:
+      owner: ${{ steps.release.outputs.owner }}
+      version: ${{ steps.release.outputs.version }}
+      operation: ${{ steps.release.outputs.operation }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: release
+        name: Require commit in main and immutable SHA
+        env:
+          OPERATION: ${{ inputs.operation }}
+          ROLLBACK_SHA: ${{ inputs.rollback_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          op="${OPERATION:-release}"
+          version="$GITHUB_SHA"
+          if [ "$op" = "rollback" ]; then
+            version="$ROLLBACK_SHA"
+          elif [ "$op" != "release" ]; then
+            echo "::error::Unknown operation"; exit 1
+          fi
+          if [[ ! "$version" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::A full immutable commit SHA is required"; exit 1
+          fi
+          git fetch origin main
+          if ! git merge-base --is-ancestor "$version" origin/main; then
+            echo "::error::Release SHA must be reachable from origin/main"; exit 1
+          fi
+          if [ "$op" = "release" ] && [ "$GITHUB_REF" != "refs/heads/main" ] &&
+             [[ "$GITHUB_REF" != refs/tags/v* ]]; then
+            echo "::error::Release only from main or a v* tag"; exit 1
+          fi
+          echo "owner=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "operation=$op" >> "$GITHUB_OUTPUT"
+
+  images:
+    name: Build immutable Docker images and push GHCR
+    needs: prepare
+    if: needs.prepare.outputs.operation == 'release'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require public production API URL for Next.js build
+        env:
+          PRODUCTION_API_URL: ${{ vars.PRODUCTION_API_URL }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! "$PRODUCTION_API_URL" =~ ^https://[^/]+/?$ ]]; then
+            echo "::error::Configure PRODUCTION_API_URL in repository Actions variables"; exit 1
+          fi
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: API image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ghcr.io/${{ needs.prepare.outputs.owner }}/assignment2-api:${{ needs.prepare.outputs.version }}
+      - name: Next.js image (public URL fixed at build time)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/web/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ghcr.io/${{ needs.prepare.outputs.owner }}/assignment2-web:${{ needs.prepare.outputs.version }}
+          build-args: |
+            NEXT_PUBLIC_API_URL=${{ vars.PRODUCTION_API_URL }}
+            NEXT_PUBLIC_MENU_DATA_SOURCE=api
+            NEXT_PUBLIC_PRODUCT_DETAIL_ENABLED=true
+            NEXT_PUBLIC_MOCK_PAYMENT_TEST_CONTROLS=false
+
+  deploy:
+    name: Protected Render deploy, migration and live smoke
+    needs: [quality, prepare, images]
+    if: always() && needs.quality.result == 'success' && needs.prepare.result == 'success' && (needs.images.result == 'success' || needs.images.result == 'skipped')
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify production is provisioned and migrations are preconfigured
+        shell: bash
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_API_SERVICE_ID: ${{ vars.RENDER_API_SERVICE_ID }}
+          RENDER_WEB_SERVICE_ID: ${{ vars.RENDER_WEB_SERVICE_ID }}
+          PRODUCTION_API_URL: ${{ vars.PRODUCTION_API_URL }}
+          PRODUCTION_WEB_URL: ${{ vars.PRODUCTION_WEB_URL }}
+          RENDER_PREDEPLOY_READY: ${{ vars.RENDER_PREDEPLOY_READY }}
+        run: |
+          set -euo pipefail
+          for name in RENDER_API_KEY RENDER_API_SERVICE_ID RENDER_WEB_SERVICE_ID PRODUCTION_API_URL PRODUCTION_WEB_URL; do
+            if [ -z "${!name}" ]; then echo "::error::Missing configuration: $name"; exit 1; fi
+          done
+          if [ "$RENDER_PREDEPLOY_READY" != "true" ]; then
+            echo "::error::Configure API Render Pre-Deploy migration and set RENDER_PREDEPLOY_READY=true"; exit 1
+          fi
+      - name: Deploy API (Render pre-deploy runs prisma migrate deploy)
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_SERVICE_ID: ${{ vars.RENDER_API_SERVICE_ID }}
+          IMAGE_URL: ghcr.io/${{ needs.prepare.outputs.owner }}/assignment2-api:${{ needs.prepare.outputs.version }}
+        run: node scripts/cd/render-deploy.mjs
+      - name: Deploy Frontend
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_SERVICE_ID: ${{ vars.RENDER_WEB_SERVICE_ID }}
+          IMAGE_URL: ghcr.io/${{ needs.prepare.outputs.owner }}/assignment2-web:${{ needs.prepare.outputs.version }}
+        run: node scripts/cd/render-deploy.mjs
+      - name: Smoke test live HTTPS sites
+        env:
+          API_BASE_URL: ${{ vars.PRODUCTION_API_URL }}
+          WEB_BASE_URL: ${{ vars.PRODUCTION_WEB_URL }}
+        run: npm run test:smoke:live
+      - name: Publish release summary
+        if: success()
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          OPERATION: ${{ needs.prepare.outputs.operation }}
+        shell: bash
+        run: |
+          echo "### BrewLite $OPERATION successful" >> "$GITHUB_STEP_SUMMARY"
+          echo "Version: \`$VERSION\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "Both Render services are live and production smoke passed." >> "$GITHUB_STEP_SUMMARY"
