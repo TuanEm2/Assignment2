@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react';
 import type { CartLine } from '@/lib/cart/types';
-import type { CheckoutState, PaymentMethod } from '@/app/checkout/checkout-view';
+import type { CheckoutState, PaymentMethod, PaymentOutcome } from '@/app/checkout/checkout-view';
 import { useAuthStore } from '@/stores/auth-store';
 import { useCartStore } from '@/stores/cart-store';
 
@@ -26,6 +26,7 @@ export type PaymentSubmitHandler = (
   amount: number,
   method: PaymentMethod,
   idempotencyKey: string,
+  outcome?: PaymentOutcome,
 ) => Promise<{ success: boolean; transactionId?: string }>;
 
 export type PaymentStatusHandler = (
@@ -68,6 +69,7 @@ async function defaultProcessPayment(
   _amount: number,
   method: PaymentMethod,
   idempotencyKey: string,
+  outcome: PaymentOutcome = 'SUCCESS',
 ) {
   void _amount;
   const token = useAuthStore.getState().token;
@@ -84,7 +86,7 @@ async function defaultProcessPayment(
         Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({
-        orderId, method, outcome: 'SUCCESS', idempotencyKey,
+        orderId, method, outcome, idempotencyKey,
       }),
     });
   } catch {
@@ -150,7 +152,7 @@ export function useCheckoutOrchestrator({
   const token = useAuthStore((s) => s.token);
   const clearCart = useCartStore((s) => s.clearCart);
 
-  const handlePay = async (items: readonly CartLine[], subtotal: number, method: PaymentMethod) => {
+  const handlePay = async (items: readonly CartLine[], subtotal: number, method: PaymentMethod, outcome: PaymentOutcome = 'SUCCESS') => {
     if (!token) {
       setState({ phase: 'failed' });
       return;
@@ -167,7 +169,7 @@ export function useCheckoutOrchestrator({
     };
     // Preserve the order key across retries for the same basket. Never generate
     // a new key blindly after an ambiguous response from the API.
-    const signature = JSON.stringify({ items: orderPayload.items, method, token });
+    const signature = JSON.stringify({ items: orderPayload.items, token });
     if (!attempt.current || attempt.current.signature !== signature) {
       const seed = `idem-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
       attempt.current = { signature, orderKey: seed, paymentKey: `pay-${seed}` };
@@ -183,6 +185,7 @@ export function useCheckoutOrchestrator({
         order.total,
         method,
         currentAttempt.paymentKey,
+        outcome,
       );
 
       if (paymentResult.success) {

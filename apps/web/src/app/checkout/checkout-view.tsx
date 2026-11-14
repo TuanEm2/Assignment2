@@ -5,6 +5,7 @@ import { useState } from 'react';
 import type { CartLine } from '@/lib/cart/types';
 
 export type PaymentMethod = 'MOCK_WALLET' | 'MOCK_CARD';
+export type PaymentOutcome = 'SUCCESS' | 'FAILURE';
 
 export type CheckoutState =
   | { phase: 'review' | 'processing' | 'failed' | 'unknown'; orderTotal?: number }
@@ -14,7 +15,8 @@ interface CheckoutViewProps {
   items: readonly CartLine[];
   subtotal: number;
   state: CheckoutState;
-  onPay?: (method: PaymentMethod) => void;
+  onPay?: (method: PaymentMethod, outcome?: PaymentOutcome) => void;
+  allowTestOutcomes?: boolean;
   onCheckStatus?: () => void;
   checkingStatus?: boolean;
 }
@@ -27,8 +29,9 @@ const methods: { value: PaymentMethod; label: string }[] = [
 const actionClass =
   'min-h-11 w-full rounded-lg bg-amber-900 px-4 py-2 font-semibold text-white hover:bg-amber-800 disabled:opacity-50';
 
-export function CheckoutView({ items, subtotal, state, onPay, onCheckStatus, checkingStatus = false }: CheckoutViewProps) {
+export function CheckoutView({ items, subtotal, state, onPay, onCheckStatus, checkingStatus = false, allowTestOutcomes = false }: CheckoutViewProps) {
   const [method, setMethod] = useState<PaymentMethod>('MOCK_WALLET');
+  const [outcome, setOutcome] = useState<PaymentOutcome>('SUCCESS');
 
   if (state.phase === 'paid') {
     return (
@@ -55,7 +58,10 @@ export function CheckoutView({ items, subtotal, state, onPay, onCheckStatus, che
       className="mt-6 space-y-5 rounded-xl border border-stone-200 bg-white p-5"
       onSubmit={(event) => {
         event.preventDefault();
-        if (canPay) onPay?.(method);
+        if (canPay) {
+          if (allowTestOutcomes) onPay?.(method, outcome);
+          else onPay?.(method);
+        }
       }}
     >
       <section aria-labelledby="checkout-summary">
@@ -90,6 +96,17 @@ export function CheckoutView({ items, subtotal, state, onPay, onCheckStatus, che
         ))}
       </fieldset>
 
+      {allowTestOutcomes && (
+        <fieldset disabled={processing || unknown} className="space-y-2 rounded-lg border border-amber-300 bg-amber-50 p-3">
+          <legend className="font-semibold">Kết quả thanh toán mô phỏng — chỉ dùng để kiểm thử</legend>
+          <label className="mr-5 inline-flex items-center gap-2">
+            <input type="radio" name="mock-outcome" checked={outcome === 'SUCCESS'} onChange={() => setOutcome('SUCCESS')} /> Thành công
+          </label>
+          <label className="inline-flex items-center gap-2">
+            <input type="radio" name="mock-outcome" checked={outcome === 'FAILURE'} onChange={() => setOutcome('FAILURE')} /> Thất bại
+          </label>
+        </fieldset>
+      )}
       {processing && <p role="status" className="text-sm">Đang xử lý thanh toán…</p>}
       {state.phase === 'failed' && (
         <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-900">

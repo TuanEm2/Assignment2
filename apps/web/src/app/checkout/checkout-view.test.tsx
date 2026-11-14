@@ -43,6 +43,15 @@ describe('Checkout UI', () => {
     expect(onPay).toHaveBeenCalledExactlyOnceWith('MOCK_CARD');
   });
 
+  it('cho chọn kết quả thất bại khi bật chế độ kiểm thử mô phỏng', async () => {
+    const user = userEvent.setup();
+    const onPay = vi.fn();
+    render(<CheckoutView items={[item]} subtotal={40000} state={{ phase: 'review' }} onPay={onPay} allowTestOutcomes />);
+    await user.click(screen.getByRole('radio', { name: 'Thất bại' }));
+    await user.click(screen.getByRole('button', { name: 'Xác nhận thanh toán' }));
+    expect(onPay).toHaveBeenCalledExactlyOnceWith('MOCK_WALLET', 'FAILURE');
+  });
+
   it('khóa thao tác khi đang xử lý và ưu tiên tổng của đơn', () => {
     render(<CheckoutView items={[item]} subtotal={40000} state={{ phase: 'processing', orderTotal: 45000 }} onPay={vi.fn()} />);
 

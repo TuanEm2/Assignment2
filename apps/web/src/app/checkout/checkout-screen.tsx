@@ -6,7 +6,7 @@ import { useClientReady } from '@/lib/client-ready';
 import { useCheckoutOrchestrator } from '@/lib/checkout/use-checkout-orchestrator';
 import { selectIsAuthenticated, useAuthStore } from '@/stores/auth-store';
 import { selectCartSubtotal, useCartStore } from '@/stores/cart-store';
-import { CheckoutView, type PaymentMethod } from './checkout-view';
+import { CheckoutView, type PaymentMethod, type PaymentOutcome } from './checkout-view';
 
 export function CheckoutScreen() {
   const ready = useClientReady();
@@ -18,11 +18,11 @@ export function CheckoutScreen() {
   const actionInProgress = useRef(false);
   const [checkingStatus, setCheckingStatus] = useState(false);
 
-  const onPay = async (method: PaymentMethod) => {
+  const onPay = async (method: PaymentMethod, outcome: PaymentOutcome = 'SUCCESS') => {
     if (actionInProgress.current) return;
     actionInProgress.current = true;
     try {
-      await handlePay(items, subtotal, method);
+      await handlePay(items, subtotal, method, outcome);
     } finally {
       actionInProgress.current = false;
     }
@@ -66,6 +66,7 @@ export function CheckoutScreen() {
             onPay={onPay}
             onCheckStatus={onCheckStatus}
             checkingStatus={checkingStatus}
+            allowTestOutcomes={process.env.NEXT_PUBLIC_MOCK_PAYMENT_TEST_CONTROLS === 'true'}
           />
         )}
       </div>

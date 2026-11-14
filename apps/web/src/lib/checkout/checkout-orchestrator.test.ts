@@ -60,6 +60,7 @@ describe('useCheckoutOrchestrator (Checkout Orchestration TV6)', () => {
       90000,
       'MOCK_WALLET',
       expect.stringContaining('pay-idem-'),
+      'SUCCESS',
     );
     expect(result.current.state.phase).toBe('paid');
     if (result.current.state.phase === 'paid') {
@@ -133,11 +134,13 @@ describe('useCheckoutOrchestrator (Checkout Orchestration TV6)', () => {
       orderSubmitter: create, paymentProcessor: payment,
     }));
 
-    await act(async () => { await result.current.handlePay([mockItem], 90000, 'MOCK_WALLET'); });
+    await act(async () => { await result.current.handlePay([mockItem], 90000, 'MOCK_WALLET', 'FAILURE'); });
     expect(result.current.state.phase).toBe('failed');
-    await act(async () => { await result.current.handlePay([mockItem], 90000, 'MOCK_WALLET'); });
+    await act(async () => { await result.current.handlePay([mockItem], 90000, 'MOCK_WALLET', 'SUCCESS'); });
     expect(create.mock.calls[0][2]).toBe(create.mock.calls[1][2]);
     expect(payment.mock.calls[0][3]).not.toBe(payment.mock.calls[1][3]);
+    expect(payment.mock.calls[0][4]).toBe('FAILURE');
+    expect(payment.mock.calls[1][4]).toBe('SUCCESS');
     expect(result.current.state.phase).toBe('paid');
   });
 
