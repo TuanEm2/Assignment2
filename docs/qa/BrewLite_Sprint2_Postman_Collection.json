@@ -1,0 +1,621 @@
+{
+  "info": {
+    "_postman_id": "brewlite-sprint2-e2e-collection",
+    "name": "BrewLite Sprint 2 - E2E Testing Suite",
+    "description": "Bộ kịch bản kiểm thử Postman hoàn chỉnh cho toàn bộ luồng nghiệp vụ Sprint 2 Monorepo BrewLite: Auth, Catalog, Orders, Stock, Mock Payment, Order History & Security Isolation.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:4000",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "strangerToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "productId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "sizeId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "toppingId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "orderId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Authentication (Xác thực)",
+      "item": [
+        {
+          "name": "1.1 Đăng ký tài khoản (Register)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const rand = Math.floor(Math.random() * 10000);",
+                  "pm.variables.set('userEmail', `customer_${Date.now()}_${rand}@brewlite.vn`);"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201 Created', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Contains User object without password', function () {",
+                  "    pm.expect(json.user).to.be.an('object');",
+                  "    pm.expect(json.user.id).to.be.a('string');",
+                  "    pm.expect(json.user).to.not.have.property('passwordHash');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{userEmail}}\",\n  \"password\": \"CustomerPass2026!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "register"]
+            }
+          }
+        },
+        {
+          "name": "1.2 Đăng nhập (Login) -> Lưu Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Returns Bearer accessToken', function () {",
+                  "    pm.expect(json.accessToken).to.be.a('string');",
+                  "    pm.collectionVariables.set('token', json.accessToken);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{userEmail}}\",\n  \"password\": \"CustomerPass2026!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "1.3 Kiểm tra thông tin phiên (GET /api/auth/me)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.expect(json.user.id).to.be.a('string');"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "me"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Catalog (Xem Menu & Món)",
+      "item": [
+        {
+          "name": "2.1 Lấy danh mục sản phẩm (GET /api/products)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Products array is not empty', function () {",
+                  "    pm.expect(json).to.be.an('array').that.is.not.empty;",
+                  "    pm.collectionVariables.set('productId', json[0].id);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/products",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "products"]
+            }
+          }
+        },
+        {
+          "name": "2.2 Xem chi tiết món & Options (GET /api/products/:id)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Has sizes and toppings', function () {",
+                  "    if (json.sizes && json.sizes.length > 0) {",
+                  "        pm.collectionVariables.set('sizeId', json.sizes[0].id);",
+                  "    }",
+                  "    if (json.toppings && json.toppings.length > 0) {",
+                  "        pm.collectionVariables.set('toppingId', json.toppings[0].id);",
+                  "    }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/products/{{productId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "products", "{{productId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Orders & Stock (Tạo đơn & Trừ tồn kho)",
+      "item": [
+        {
+          "name": "3.1 Tạo đơn hàng mới (POST /api/orders) -> Lưu OrderId",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "pm.variables.set('orderIdemKey', `order-idem-${Date.now()}`);"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201 Created', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Order status is PENDING and has total', function () {",
+                  "    pm.expect(json.status).to.eql('PENDING');",
+                  "    pm.expect(json.total).to.be.a('number').above(0);",
+                  "    pm.collectionVariables.set('orderId', json.id);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "idempotency-key", "value": "{{orderIdemKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"productId\": \"{{productId}}\",\n      \"sizeId\": \"{{sizeId}}\",\n      \"toppingIds\": [\"{{toppingId}}\"],\n      \"quantity\": 2\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/orders",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "orders"]
+            }
+          }
+        },
+        {
+          "name": "3.2 Kiểm tra Idempotency Replay (POST cùng key)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201 Created', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Replays exact same order ID', function () {",
+                  "    pm.expect(json.id).to.eql(pm.collectionVariables.get('orderId'));",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "idempotency-key", "value": "{{orderIdemKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"productId\": \"{{productId}}\",\n      \"sizeId\": \"{{sizeId}}\",\n      \"toppingIds\": [\"{{toppingId}}\"],\n      \"quantity\": 2\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/orders",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "orders"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Mock Payment (Thanh toán)",
+      "item": [
+        {
+          "name": "4.1 Thử nghiệm thanh toán thất bại (FAILURE)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Payment fails and status is PAYMENT_FAILED', function () {",
+                  "    pm.expect(json.success).to.eql(false);",
+                  "    pm.expect(json.status).to.eql('PAYMENT_FAILED');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderId\": \"{{orderId}}\",\n  \"method\": \"MOCK_CARD\",\n  \"outcome\": \"FAILURE\",\n  \"idempotencyKey\": \"pay-fail-attempt-001\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/payments/mock",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "payments", "mock"]
+            }
+          }
+        },
+        {
+          "name": "4.2 Retry thanh toán thành công (SUCCESS với key mới)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Payment succeeds and transitions Order to PAID', function () {",
+                  "    pm.expect(json.success).to.eql(true);",
+                  "    pm.expect(json.status).to.eql('PAID');",
+                  "    pm.expect(json.transactionId).to.be.a('string');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderId\": \"{{orderId}}\",\n  \"method\": \"MOCK_WALLET\",\n  \"outcome\": \"SUCCESS\",\n  \"idempotencyKey\": \"pay-success-attempt-002\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/payments/mock",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "payments", "mock"]
+            }
+          }
+        },
+        {
+          "name": "4.3 Kiểm tra trạng thái thanh toán (GET /api/payments/mock/status/:orderId)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.expect(json.success).to.eql(true);",
+                  "pm.expect(json.status).to.eql('PAID');"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/payments/mock/status/{{orderId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "payments", "mock", "status", "{{orderId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Order History (Lịch sử & Chi tiết đơn)",
+      "item": [
+        {
+          "name": "5.1 Lịch sử đơn hàng của tôi (GET /api/orders/me)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Returns list containing our paid order', function () {",
+                  "    pm.expect(json).to.be.an('array');",
+                  "    const found = json.find(o => o.id === pm.collectionVariables.get('orderId'));",
+                  "    pm.expect(found).to.be.an('object');",
+                  "    pm.expect(found.status).to.eql('PAID');",
+                  "    pm.expect(found.itemCount).to.eql(2);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/orders/me?limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "orders", "me"],
+              "query": [
+                { "key": "limit", "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "5.2 Xem chi tiết snapshot đơn hàng (GET /api/orders/:id)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Detail contains items snapshot and payment info', function () {",
+                  "    pm.expect(json.id).to.eql(pm.collectionVariables.get('orderId'));",
+                  "    pm.expect(json.status).to.eql('PAID');",
+                  "    pm.expect(json.items).to.be.an('array').that.is.not.empty;",
+                  "    pm.expect(json.items[0]).to.have.property('unitPrice');",
+                  "    pm.expect(json.items[0]).to.have.property('productName');",
+                  "    pm.expect(json.payment).to.be.an('object');",
+                  "    pm.expect(json.payment.method).to.eql('MOCK_WALLET');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/orders/{{orderId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "orders", "{{orderId}}"]
+            }
+          }
+        },
+        {
+          "name": "5.3 Xem trạng thái đơn hàng (GET /api/orders/:id/status)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.expect(json.id).to.eql(pm.collectionVariables.get('orderId'));",
+                  "pm.expect(json.status).to.eql('PAID');"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/orders/{{orderId}}/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "orders", "{{orderId}}", "status"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Security & Multi-tenant (Bảo mật phân quyền)",
+      "item": [
+        {
+          "name": "6.1 Đăng ký tài khoản thứ hai (Khách lạ B)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"stranger_user_b@brewlite.vn\",\n  \"password\": \"StrangerPass2026!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "register"]
+            }
+          }
+        },
+        {
+          "name": "6.2 Đăng nhập tài khoản B -> Lưu strangerToken",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set('strangerToken', json.accessToken);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"stranger_user_b@brewlite.vn\",\n  \"password\": \"StrangerPass2026!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "6.3 Tài khoản B truy cập đơn của Tài khoản A -> Bị từ chối 404 Not Found",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 404 Not Found (Bảo vệ quyền sở hữu)', function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{strangerToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/orders/{{orderId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "orders", "{{orderId}}"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
