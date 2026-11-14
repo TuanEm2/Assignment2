@@ -88,3 +88,21 @@ it('hiển thị cấu hình không có option mà không bịa size/topping', a
   expect(screen.getByRole('button', { name: 'Thêm vào giỏ' })).toBeEnabled();
   await waitFor(() => expect(screen.getByLabelText('Tổng tạm tính')).toHaveTextContent(/45.000/));
 });
+
+it('không cho thêm vượt số ly pha được theo công thức nguyên liệu', async () => {
+  const user = userEvent.setup();
+  const loader = vi.fn().mockResolvedValue(product);
+  const fetchMock = vi.fn().mockResolvedValue(Response.json({ availableCups: 2 }));
+  vi.stubGlobal('fetch', fetchMock);
+  try {
+    render(<ProductDetail productId={product.id} loader={loader} />);
+    expect(await screen.findByText(/ước tính còn 2 ly/i)).toBeInTheDocument();
+    const input = screen.getByRole('spinbutton', { name: 'Số lượng' });
+    await user.clear(input);
+    await user.type(input, '3');
+    expect(screen.getByRole('button', { name: 'Thêm vào giỏ' })).toBeDisabled();
+    expect(screen.getByText(/số lượng vượt quá nguyên liệu/i)).toBeInTheDocument();
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});

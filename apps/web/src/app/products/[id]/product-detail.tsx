@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { getProductDetail, type ProductDetail as Product } from '@/lib/products/detail';
+import { getProductDetail, getProductAvailability, type ProductDetail as Product } from '@/lib/products/detail';
 import { useCartStore } from '@/stores/cart-store';
 import './product-detail.css';
 
@@ -18,6 +18,9 @@ export function ProductDetail({ productId, loader = getProductDetail }: { produc
   const [quantity, setQuantity] = useState('1');
   const [notice, setNotice] = useState('');
   const [imageFailed, setImageFailed] = useState(false);
+  const [availableCups, setAvailableCups] = useState<number | null>(null);
+  const [stockLoading, setStockLoading] = useState(false);
+  const [stockError, setStockError] = useState(false);
   const addItem = useCartStore(s => s.addItem);
 
   useEffect(() => {
@@ -33,14 +36,28 @@ export function ProductDetail({ productId, loader = getProductDetail }: { produc
     return () => controller.abort();
   }, [productId, retry, loader]);
 
+  useEffect(() => {
+    if (!product || product.id !== productId || !sizeId) return;
+    const controller = new AbortController();
+    setStockLoading(true);
+    setAvailableCups(null);
+    setStockError(false);
+    void getProductAvailability(product.id, sizeId, toppingIds, controller.signal)
+      .then((cups) => { if (!controller.signal.aborted) setAvailableCups(cups); })
+      .catch(() => { if (!controller.signal.aborted) setStockError(true); })
+      .finally(() => { if (!controller.signal.aborted) setStockLoading(false); });
+    return () => controller.abort();
+  }, [product, productId, sizeId, toppingIds]);
+
   const size = product?.sizes.find(s => s.id === sizeId) ?? null;
   const toppings = product?.toppings.filter(t => toppingIds.includes(t.id)) ?? [];
   const count = Number(quantity);
   const valid = Number.isSafeInteger(count) && count >= 1 && count <= 99;
+  const exceedsStock = availableCups !== null && count > availableCups;
   const unitPrice = (product?.price ?? 0) + (size?.price ?? 0) + toppings.reduce((n, t) => n + t.price, 0);
 
   function addSelectedProduct() {
-    if (!product || !valid || (product.sizes.length > 0 && !size)) return;
+    if (!product || !valid || exceedsStock || (product.sizes.length > 0 && !size)) return;
     addItem({ productId: product.id, productName: product.name, basePrice: product.price,
       imageUrl: product.imageUrl, size, toppings, quantity: count });
     setNotice(`Đã thêm ${count} ${product.name} vào giỏ.`);
@@ -63,11 +80,19 @@ export function ProductDetail({ productId, loader = getProductDetail }: { produc
           <label key={t.id}><input type="checkbox" checked={toppingIds.includes(t.id)} onChange={() => {
             setToppingIds(ids => ids.includes(t.id) ? ids.filter(id => id !== t.id) : [...ids, t.id]); setNotice('');
           }} />{t.name} (+{money(t.price)})</label>) : <p>Không có topping bổ sung.</p>}</fieldset>
-        <label className="detail-quantity">Số lượng<input type="number" min="1" max="99" step="1" value={quantity} onChange={e => { setQuantity(e.target.value); setNotice(''); }} /></label>
+        <label className="detail-quantity">Số lượng<input type="number" min="1" max={Math.min(99, availableCups ?? 99)} step="1" value={quantity} onChange={e => { setQuantity(e.target.value); setNotice(''); }} /></label>
         {!valid && <p role="alert">Số lượng phải là số nguyên từ 1 đến 99.</p>}
+        <p aria-live="polite" className="text-sm">
+          {stockLoading ? 'Đang kiểm tra nguyên liệu còn lại…' :
+            stockError ? 'Chưa thể kiểm tra tồn kho. Hệ thống sẽ kiểm tra khi đặt đơn.' :
+            availableCups === null ? 'Chọn size để kiểm tra số ly còn lại.' :
+            availableCups === 0 ? 'Hết nguyên liệu cho lựa chọn này.' :
+            `Ước tính còn ${availableCups} ly với size và topping đã chọn.`}
+        </p>
+        {exceedsStock && <p role="alert">Số lượng vượt quá nguyên liệu có thể pha hiện tại.</p>}
         <p className="detail-total">Tạm tính: <output aria-label="Tổng tạm tính">{money(unitPrice * (valid ? count : 0))}</output></p>
         <p>Giá và tồn kho sẽ được kiểm tra lại khi đặt đơn.</p>
-        <button disabled={!valid || (product.sizes.length > 0 && !size)} onClick={addSelectedProduct}>Thêm vào giỏ</button>
+        <button disabled={!valid || exceedsStock || (product.sizes.length > 0 && !size)} onClick={addSelectedProduct}>Thêm vào giỏ</button>
         {notice && <p role="status" aria-label="Thông báo giỏ hàng">{notice}</p>}
       </section>
     </article>}

@@ -4,6 +4,8 @@ export interface ProductDto {
   name: string;
   price: number;
   imageUrl: string;
+  /** Approximate number of size S drinks without toppings. */
+  availableCups?: number | null;
 }
 
 interface ProductOptionDto {

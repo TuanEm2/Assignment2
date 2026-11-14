@@ -12,6 +12,7 @@ export interface Product {
   category?: string;
   description?: string;
   imageUrl?: string;
+  availableCups?: number | null;
 }
 
 type Loader = (signal: AbortSignal) => Promise<Product[]>;
@@ -105,6 +106,10 @@ export function parseProducts(value: unknown): Product[] {
       }
     }
 
+    if (row.availableCups === null) result.availableCups = null;
+    else if (typeof row.availableCups === 'number' && Number.isSafeInteger(row.availableCups) && row.availableCups >= 0) {
+      result.availableCups = row.availableCups;
+    }
     return result;
   });
 }
@@ -261,6 +266,13 @@ function ProductCard({
             'Một lựa chọn cho khoảng nghỉ của bạn.'}
         </p>
 
+        {detailEnabled && product.availableCups !== undefined && product.availableCups !== null && (
+          <p className="mt-2 text-sm font-semibold text-emerald-900" aria-label="Số ly còn lại">
+            {product.availableCups === 0
+              ? 'Hết nguyên liệu cho size S'
+              : `Còn khoảng ${product.availableCups} ly (size S, không topping)`}
+          </p>
+        )}
         <div className="tv4-card-bottom">
           <strong>{money.format(product.price)}</strong>
 

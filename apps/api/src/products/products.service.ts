@@ -18,11 +18,33 @@ const optionFields = { id: true, name: true, price: true } as const;
 export class ProductsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  findAll(): Promise<ProductDto[]> {
-    return this.prisma.product.findMany({
-      select: productFields,
+  async findAll(): Promise<ProductDto[]> {
+    const products = await this.prisma.product.findMany({
+      select: {
+        ...productFields,
+        sizes: {
+          where: { name: 'S' },
+          select: { recipe: { select: { ingredientId: true, quantity: true } } },
+        },
+      },
       orderBy: { slug: 'asc' },
     });
+    const ingredientIds = [...new Set(products.flatMap((product) =>
+      (product.sizes?.[0]?.recipe ?? []).map((row) => row.ingredientId),
+    ))];
+    if (!ingredientIds.length) {
+      return products.map(({ sizes: _sizes, ...product }) => product);
+    }
+    const stocks = await this.prisma.ingredient.findMany({
+      where: { id: { in: ingredientIds } },
+      select: { id: true, stock: true },
+    });
+    return products.map(({ sizes, ...product }) => ({
+      ...product,
+      availableCups: sizes?.[0]?.recipe?.length
+        ? calculateAvailableCups(sizes[0].recipe, stocks)
+        : null,
+    }));
   }
 
   async findOne(id: string): Promise<ProductDetailDto> {

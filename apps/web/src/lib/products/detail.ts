@@ -72,3 +72,26 @@ export async function getProductDetail(
 
   return product;
 }
+
+/** Current ingredient-based capacity for one size/topping combination. */
+export async function getProductAvailability(
+  id: string,
+  sizeId: string,
+  toppingIds: readonly string[],
+  signal: AbortSignal,
+): Promise<number> {
+  const query = new URLSearchParams({ sizeId });
+  if (toppingIds.length) query.set('toppingIds', toppingIds.join(','));
+  const response = await fetch(`${getProductsUrl(id)}/availability?${query.toString()}`, {
+    signal,
+    cache: 'no-store',
+  });
+  if (!response.ok) throw new Error('Không kiểm tra được tồn kho hiện tại.');
+  const data: unknown = await response.json();
+  if (!data || typeof data !== 'object' || !('availableCups' in data) ||
+      typeof data.availableCups !== 'number' ||
+      !Number.isSafeInteger(data.availableCups) || data.availableCups < 0) {
+    throw new Error('Số ly có thể pha không hợp lệ.');
+  }
+  return data.availableCups;
+}
