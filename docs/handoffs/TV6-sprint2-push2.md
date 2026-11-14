@@ -48,7 +48,28 @@ Theo đúng bảng phân công Sprint 2 Push 2 ("Kết nối toàn bộ Checkout
 
 ---
 
-### C. Bộ kiểm thử tích hợp toàn luồng End-to-End (E2E Integration Test)
+### C. Bộ kiểm thử End-to-End Trình duyệt thực tế (Real Browser E2E Automation)
+
+Tạo file kiểm thử E2E tự động hóa trực tiếp trên trình duyệt Web thật: `tests/e2e/browser-flow.test.mjs` (sử dụng Playwright engine điều khiển Microsoft Edge / Chromium thật chạy trực tiếp trên `http://localhost:3000` và `http://localhost:4000`):
+1. **Bước 1 — Đăng ký tài khoản mới:** Truy cập `/register`, điền họ tên, email thật, mật khẩu chuẩn bảo mật >= 12 ký tự, submit form thành công.
+2. **Bước 2 — Đăng nhập hệ thống:** Mở `/login`, đăng nhập tài khoản vừa tạo, kiểm tra token JWT được lưu vào Zustand auth store.
+3. **Bước 3 — Duyệt thực đơn:** Mở `/menu`, tìm thấy sản phẩm, click vào thẻ liên kết mở trang chi tiết món (`/products/[id]`).
+4. **Bước 4 — Tùy chỉnh & Thêm vào giỏ:** Chọn Size M, chọn Topping, tăng số lượng lên 2, bấm "Thêm vào giỏ", hiển thị thông báo giỏ hàng thành công.
+5. **Bước 5 — Kiểm tra giỏ hàng:** Điều hướng `/cart`, xác nhận món và các tùy chọn có mặt trong giỏ, bấm "Thanh toán".
+6. **Bước 6 — Thanh toán thực tế:** Tại `/checkout`, chọn "Ví điện tử mô phỏng", bấm "Xác nhận thanh toán", gọi API thật trừ kho và mock payment, hiển thị thông báo "Thanh toán thành công" kèm mã đơn thật từ DB.
+7. **Bước 7 — Kiểm tra Lịch sử đơn hàng:** Bấm "Lịch sử đơn hàng", mở `/orders`, xác nhận đơn vừa tạo hiển thị trạng thái "ĐÃ THANH TOÁN".
+8. **Bước 8 — Chi tiết đơn hàng Snapshot:** Click vào thẻ đơn, mở `/orders/[id]`, xác nhận render đầy đủ bảng snapshot món (Size M, Topping, Số lượng 2, đơn giá, thành tiền) và khối thông tin thanh toán thật.
+9. **Bước 9 — Kiểm thử bảo mật Multi-tenant:** Khách hàng B mở phiên trình duyệt riêng độc lập, đăng ký/đăng nhập tài khoản B, cố tình gõ trực tiếp URL đơn hàng của Khách A $\to$ Nhận thông báo lỗi bảo mật 404, tuyệt đối không lộ dữ liệu đơn của khách khác.
+
+Lệnh chạy:
+- Chạy nền kiểm tra nhanh: `npm run test:e2e`
+- Chạy trực tiếp mở cửa sổ trình duyệt Edge tự động click để theo dõi bằng mắt (headed mode):
+  PowerShell: `$env:HEADED="true"; npm run test:e2e`
+  CMD: `set HEADED=true && npm run test:e2e`
+
+---
+
+### D. Bộ kiểm thử tích hợp toàn luồng API (E2E Integration Test)
 
 Tạo file kiểm thử E2E: `tests/integration/checkout-e2e-flow.test.mjs`:
 1. **Luồng Xác thực & Phân quyền:** Đăng ký $\to$ Đăng nhập $\to$ Xác thực cấu trúc JWT Bearer $\to$ Kiểm tra mật khẩu >= 12 ký tự.
@@ -75,6 +96,7 @@ Tạo file kiểm thử Smoke Test: `tests/smoke/smoke-test.mjs` và bổ sung l
 
 | Bộ kiểm thử | Lệnh thực thi | Kết quả | Trạng thái |
 | :--- | :--- | :---: | :---: |
+| **Real Browser E2E Automation** | `npm run test:e2e` | 1 suite (9 bước full flow + multi-tenant) | **PASS 100%** |
 | **Backend Unit Tests** | `npm run test -w apps/api -- --runInBand` | 9 suites, 108 tests | **PASS 100%** |
 | **Frontend Component Tests** | `npm run test -w apps/web` | 11 files, 65 tests | **PASS 100%** |
 | **Cart Calculations** | `npm run test:cart` | 5 tests | **PASS 100%** |

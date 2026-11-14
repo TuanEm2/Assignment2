@@ -68,7 +68,7 @@ export function OrderDetailContent({
   const token = useAuthStore((s) => s.token);
 
   const [order, setOrder] = useState<OrderDetail | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [statusCode, setStatusCode] = useState<number | null>(null);
   const [attempt, setAttempt] = useState(0);
@@ -137,7 +137,7 @@ export function OrderDetailContent({
     return () => controller.abort();
   }, [orderId, ready, signedIn, token, loader, attempt]);
 
-  if (!ready || loading) {
+  if (!ready || (signedIn && loading)) {
     return (
       <main className="orders-container">
         <p role="status">Đang tải chi tiết đơn hàng…</p>
