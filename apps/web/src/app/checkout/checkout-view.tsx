@@ -16,6 +16,7 @@ interface CheckoutViewProps {
   state: CheckoutState;
   onPay?: (method: PaymentMethod) => void;
   onCheckStatus?: () => void;
+  checkingStatus?: boolean;
 }
 
 const vnd = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' });
@@ -26,7 +27,7 @@ const methods: { value: PaymentMethod; label: string }[] = [
 const actionClass =
   'min-h-11 w-full rounded-lg bg-amber-900 px-4 py-2 font-semibold text-white hover:bg-amber-800 disabled:opacity-50';
 
-export function CheckoutView({ items, subtotal, state, onPay, onCheckStatus }: CheckoutViewProps) {
+export function CheckoutView({ items, subtotal, state, onPay, onCheckStatus, checkingStatus = false }: CheckoutViewProps) {
   const [method, setMethod] = useState<PaymentMethod>('MOCK_WALLET');
 
   if (state.phase === 'paid') {
@@ -36,15 +37,9 @@ export function CheckoutView({ items, subtotal, state, onPay, onCheckStatus }: C
         <p className="mt-2 break-all">Mã đơn {state.orderId}</p>
         <p className="mt-1">Đã thanh toán {vnd.format(state.orderTotal)}</p>
         <div className="mt-4 flex flex-wrap gap-4">
-          <Link href={`/orders/${state.orderId}`} className="font-semibold text-amber-900 underline">
-            Xem chi tiết đơn
-          </Link>
-          <Link href="/orders" className="font-semibold text-amber-900 underline">
-            Lịch sử đơn hàng
-          </Link>
-          <Link href="/menu" className="font-semibold text-amber-900 underline">
-            Về menu
-          </Link>
+          <Link href={`/orders/${state.orderId}`} className="font-semibold text-amber-900 underline">Xem chi tiết đơn</Link>
+          <Link href="/orders" className="font-semibold text-amber-900 underline">Lịch sử đơn hàng</Link>
+          <Link href="/menu" className="font-semibold text-amber-900 underline">Về menu</Link>
         </div>
       </section>
     );
@@ -56,7 +51,7 @@ export function CheckoutView({ items, subtotal, state, onPay, onCheckStatus }: C
 
   return (
     <form
-      aria-busy={processing}
+      aria-busy={processing || checkingStatus}
       className="mt-6 space-y-5 rounded-xl border border-stone-200 bg-white p-5"
       onSubmit={(event) => {
         event.preventDefault();
@@ -67,7 +62,7 @@ export function CheckoutView({ items, subtotal, state, onPay, onCheckStatus }: C
         <h2 id="checkout-summary" className="text-lg font-semibold">Đơn của bạn</h2>
         <ul className="mt-2 space-y-1 text-sm">
           {items.map((item) => (
-            <li key={item.id} className="break-words">
+            <li key={item.id} className="wrap-anywhere">
               {item.productName}{item.size ? ` · Size ${item.size.name}` : ''} × {item.quantity}
               {item.toppings.length > 0 && ` · ${item.toppings.map((topping) => topping.name).join(', ')}`}
             </li>
@@ -78,10 +73,10 @@ export function CheckoutView({ items, subtotal, state, onPay, onCheckStatus }: C
         </p>
       </section>
 
-      <fieldset disabled={processing || unknown} className="space-y-2">
+      <fieldset disabled={processing || unknown} className="grid min-w-0 gap-2 sm:grid-cols-2">
         <legend className="mb-2 text-base font-semibold">Phương thức thanh toán</legend>
         {methods.map(({ value, label }) => (
-          <label key={value} className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border border-stone-300 px-3 py-2">
+          <label key={value} className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border border-stone-300 px-3 py-2 has-checked:border-amber-900 has-checked:bg-amber-50">
             <input
               type="radio"
               name="payment-method"
@@ -111,8 +106,8 @@ export function CheckoutView({ items, subtotal, state, onPay, onCheckStatus }: C
       )}
 
       {unknown ? (
-        <button type="button" disabled={!onCheckStatus} onClick={onCheckStatus} className={actionClass}>
-          Kiểm tra trạng thái
+        <button type="button" disabled={checkingStatus || !onCheckStatus} onClick={onCheckStatus} className={actionClass}>
+          {checkingStatus ? 'Đang kiểm tra…' : 'Kiểm tra trạng thái'}
         </button>
       ) : (
         <button type="submit" disabled={!canPay} className={actionClass}>
