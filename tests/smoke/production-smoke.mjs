@@ -20,7 +20,7 @@ const checks = [
     validate: async (response) => {
       if (!response.ok) throw new Error(`products returned ${response.status}`);
       const products = await response.json();
-      if (!Array.isArray(products)) throw new Error('products response is not an array');
+      if (!Array.isArray(products) || products.length === 0) throw new Error('production catalog is empty/invalid; seed demo data once before release');
     },
   },
   {

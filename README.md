@@ -47,7 +47,7 @@ Yêu cầu: Node 26, PostgreSQL, npm.
 
 Khi chạy từ host (không phải trong Docker), dùng DATABASE_URL kết nối localhost:5433 nếu PostgreSQL chạy bằng Compose.
 
-## Quality gate
+## Production CD (TV1)\n\n`.github/workflows/cd.yml` publishes SHA-tagged Docker images to GHCR and deploys existing Render image-backed services only after production is configured. Includes pre-deploy migration, HTTPS smoke checks and manual SHA rollback. See [deployment and rollback](docs/deployment.md). Creating these files does **not** provision a production environment.\n\n## Quality gate
 
 - npm run lint
 - npm run test

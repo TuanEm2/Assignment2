@@ -16,12 +16,12 @@ Release flow:
 ## One-time Render provisioning
 
 1. Create a Render PostgreSQL instance and keep it private. Copy the **internal** PostgreSQL URL into the API service's `DATABASE_URL` secret.
-2. Create a Render image-backed API service using the GHCR repository `ghcr.io/tuanem2/assignment2-api` and an available existing SHA tag. Render's default image host/repository/name must match GitHub Actions' `imageUrl`.
-3. Set API runtime `NODE_ENV=production`, `PORT=4000`, `DATABASE_URL=<internal-postgres-connection>`, `JWT_SECRET=<random-32-byte-plus-secret>`, `PAYMENT_MODE=mock`, `RUN_MIGRATIONS_ON_STARTUP=false`, `CORS_ORIGINS=https://<frontend-onrender-domain>`. Configure **Pre-Deploy Command** `npm run db:migrate`, **Health Check Path** `/api/health`. Do not commit these secrets.
-4. Create a Render image-backed Web service using `ghcr.io/tuanem2/assignment2-web`. The web image embeds `NEXT_PUBLIC_API_URL` at build time; the workflow builds with your public HTTPS API URL. Web runs on `PORT=3000`.
-5. Enable GHCR package visibility for Render to pull, or register GHCR registry credentials on both Render services. The `GITHUB_TOKEN` used to push an image from Actions does not grant Render pull access by itself.
-6. Disable Render's independent auto-deploy for these image-backed services (release is controlled by the GitHub CD workflow).
-7. On the initial production database, run migrations through the API service's Pre-Deploy Command; seed the sample catalog **once**, deliberately, on production if your demo requires it. **Never** run automatic destructive reset/seed after each deploy. Keep `NEXT_PUBLIC_MOCK_PAYMENT_TEST_CONTROLS=false`.
+2. Bootstrap GHCR images first using the release workflow (the deploy job will intentionally stop if no Render services are configured), or push initial images manually. Then create Render services from those tags.\n3. Create a Render image-backed API service using the GHCR repository `ghcr.io/tuanem2/assignment2-api` and an available existing SHA tag. Render's default image host/repository/name must match GitHub Actions' `imageUrl`.
+4. Set API runtime `NODE_ENV=production`, `PORT=4000`, `DATABASE_URL=<internal-postgres-connection>`, `JWT_SECRET=<random-32-byte-plus-secret>`, `PAYMENT_MODE=mock`, `RUN_MIGRATIONS_ON_STARTUP=false`, `CORS_ORIGINS=https://<frontend-onrender-domain>`. Configure **Pre-Deploy Command** `npm run db:migrate`, **Health Check Path** `/api/health`. Do not commit these secrets.
+5. Create a Render image-backed Web service using `ghcr.io/tuanem2/assignment2-web`. The web image embeds `NEXT_PUBLIC_API_URL` at build time; the workflow builds with your public HTTPS API URL. Web runs on `PORT=3000`.
+6. Enable GHCR package visibility for Render to pull, or register GHCR registry credentials on both Render services. The `GITHUB_TOKEN` used to push an image from Actions does not grant Render pull access by itself.
+7. Disable Render's independent auto-deploy for these image-backed services (release is controlled by the GitHub CD workflow).
+8. On the initial production database, run migrations through the API service's Pre-Deploy Command; seed the sample catalog **once**, deliberately, on production if your demo requires it. **Never** run automatic destructive reset/seed after each deploy. Keep `NEXT_PUBLIC_MOCK_PAYMENT_TEST_CONTROLS=false`.
 
 **Important:** Production uses mock payment only as specified for the assignment, not real money. The success/failure selector UI must stay disabled on publicly reachable production.
 
@@ -29,7 +29,7 @@ Release flow:
 
 Go to GitHub → Settings → Secrets and variables → Actions.
 
-Repository or `production` environment **Variables**:
+Repository-level **Variables** (especially `PRODUCTION_API_URL`, which is needed before the deploy environment opens):
 
 | Name | Example | Notes |
 | --- | --- | --- |
@@ -39,7 +39,7 @@ Repository or `production` environment **Variables**:
 | `RENDER_WEB_SERVICE_ID` | `srv-...web...` | Actual Render service ID |
 | `RENDER_PREDEPLOY_READY` | `true` | **Only** set after verifying pre-deploy command, database backup, and private DB |
 
-Actions / production environment **Secret**: `RENDER_API_KEY` (Render API token with permission to deploy both services).
+Variables used only during deployment may alternatively be configured under the protected `production` environment; `PRODUCTION_API_URL` MUST be a repository variable.\n\nActions / production environment **Secret**: `RENDER_API_KEY` (Render API token with permission to deploy both services).
 
 Create GitHub **Environment: production** with required reviewers if available. Limit who can trigger releases. Enforce branch protection on `main`. GHCR publishing is performed by `GITHUB_TOKEN` with `packages:write`; no GHCR personal access token is needed for the push.
 
