@@ -47,6 +47,8 @@ services:
       dockerfile: apps/web/Dockerfile
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4000}
+        NEXT_PUBLIC_MENU_DATA_SOURCE: ${NEXT_PUBLIC_MENU_DATA_SOURCE:-api}
+        NEXT_PUBLIC_PRODUCT_DETAIL_ENABLED: ${NEXT_PUBLIC_PRODUCT_DETAIL_ENABLED:-true}
         NEXT_PUBLIC_MOCK_PAYMENT_TEST_CONTROLS: ${NEXT_PUBLIC_MOCK_PAYMENT_TEST_CONTROLS:-false}
     restart: unless-stopped
     environment:

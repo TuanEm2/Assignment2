@@ -33,7 +33,10 @@ export class ProductsService {
       (product.sizes?.[0]?.recipe ?? []).map((row) => row.ingredientId),
     ))];
     if (!ingredientIds.length) {
-      return products.map(({ sizes: _sizes, ...product }) => product);
+      return products.map(({ sizes, ...product }) => {
+        void sizes;
+        return product;
+      });
     }
     const stocks = await this.prisma.ingredient.findMany({
       where: { id: { in: ingredientIds } },
