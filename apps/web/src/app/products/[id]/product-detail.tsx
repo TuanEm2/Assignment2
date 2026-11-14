@@ -18,9 +18,11 @@ export function ProductDetail({ productId, loader = getProductDetail }: { produc
   const [quantity, setQuantity] = useState('1');
   const [notice, setNotice] = useState('');
   const [imageFailed, setImageFailed] = useState(false);
-  const [availableCups, setAvailableCups] = useState<number | null>(null);
-  const [stockLoading, setStockLoading] = useState(false);
-  const [stockError, setStockError] = useState(false);
+  const [stockSnapshot, setStockSnapshot] = useState<{
+    key: string;
+    cups: number | null;
+    error: boolean;
+  }>({ key: '', cups: null, error: false });
   const addItem = useCartStore(s => s.addItem);
 
   useEffect(() => {
@@ -36,18 +38,29 @@ export function ProductDetail({ productId, loader = getProductDetail }: { produc
     return () => controller.abort();
   }, [productId, retry, loader]);
 
+  const stockKey = product && product.id === productId && sizeId
+    ? JSON.stringify([product.id, sizeId, toppingIds])
+    : '';
+  const availableCups = stockSnapshot.key === stockKey ? stockSnapshot.cups : null;
+  const stockLoading = stockKey !== '' && stockSnapshot.key !== stockKey;
+  const stockError = stockSnapshot.key === stockKey && stockSnapshot.error;
+
   useEffect(() => {
     if (!product || product.id !== productId || !sizeId) return;
     const controller = new AbortController();
-    setStockLoading(true);
-    setAvailableCups(null);
-    setStockError(false);
     void getProductAvailability(product.id, sizeId, toppingIds, controller.signal)
-      .then((cups) => { if (!controller.signal.aborted) setAvailableCups(cups); })
-      .catch(() => { if (!controller.signal.aborted) setStockError(true); })
-      .finally(() => { if (!controller.signal.aborted) setStockLoading(false); });
+      .then((cups) => {
+        if (!controller.signal.aborted) {
+          setStockSnapshot({ key: stockKey, cups, error: false });
+        }
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) {
+          setStockSnapshot({ key: stockKey, cups: null, error: true });
+        }
+      });
     return () => controller.abort();
-  }, [product, productId, sizeId, toppingIds]);
+  }, [product, productId, sizeId, toppingIds, stockKey]);
 
   const size = product?.sizes.find(s => s.id === sizeId) ?? null;
   const toppings = product?.toppings.filter(t => toppingIds.includes(t.id)) ?? [];
