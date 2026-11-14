@@ -19,6 +19,8 @@
     "test:cart": "node --experimental-strip-types --test tests/cart-calculations.test.mjs",
     "test:integration": "node --experimental-strip-types --test tests/integration/*.test.mjs",
     "test:smoke": "node --experimental-strip-types --test tests/smoke/smoke-test.mjs",
+    "test:smoke:live": "node tests/smoke/production-smoke.mjs",
+    "test:cd": "node --test tests/cd/*.test.mjs",
     "test:inventory": "npm run test -w apps/api -- --runInBand --runTestsByPath src/inventory/inventory.service.spec.ts",
     "test:inventory:postgres": "npm run test:e2e -w apps/api -- --runInBand --runTestsByPath test/inventory-postgres.e2e-spec.ts"
   }

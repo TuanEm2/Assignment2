@@ -1,6 +1,7 @@
 name: BrewLite CI
 
 on:
+  workflow_call:
   pull_request:
     branches: [main]
   push:
@@ -51,6 +52,9 @@ jobs:
 
       - name: Unit tests (NestJS and Next.js)
         run: npm run test
+
+      - name: CD helper tests
+        run: npm run test:cd
 
       - name: Cart logic tests (TV1)
         run: npm run test:cart
