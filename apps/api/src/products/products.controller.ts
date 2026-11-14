@@ -1,4 +1,4 @@
-import { Controller, Get, Param, ParseUUIDPipe } from '@nestjs/common';
+import { Controller, Get, Param, ParseUUIDPipe, Query } from '@nestjs/common';
 import type { ProductDetailDto, ProductDto } from './dto/product.dto';
 import { ProductsService } from './products.service';
 
@@ -9,6 +9,16 @@ export class ProductsController {
   @Get()
   findAll(): Promise<ProductDto[]> {
     return this.products.findAll();
+  }
+
+  @Get(':id/availability')
+  availability(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query('sizeId') sizeId: string,
+    @Query('toppingIds') rawToppingIds?: string,
+  ) {
+    const toppingIds = rawToppingIds ? rawToppingIds.split(',') : [];
+    return this.products.availability(id, sizeId, toppingIds);
   }
 
   @Get(':id')
