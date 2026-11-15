@@ -38,4 +38,4 @@ Nguồn chỉnh sửa: activity-order.drawio (6 tab, không chứa Class). Ảnh
 - [Đối chiếu từng AC](activity-ac-coverage.md).
 - [Truy vết code/test](activity-traceability.md).
 - [Điểm cần phối hợp](activity-consistency-review.md).
-- [Task 1.1](../../requirements/task1.1/context-and-scope.md).
+- [Task 1.1](../../../requirements/task1.1/context-and-scope.md).

@@ -4,7 +4,7 @@
 
 Đề Assignment 2 v1.0, Task 2.1; FR-01–FR-18/AC do Huy gửi; Use Case và Sequence trong Sơ đồ.docx của Trần Ân; code main `f119683`.
 
-Đây là bộ mô hình nghiệp vụ để review SRS và luồng, không phải ảnh tạo bằng AI hoặc bằng chứng E2E. Đã dựng bằng native shape/connector, mở trong draw.io và xuất trực tiếp SVG/PNG bằng File → Export as. Nguồn chuẩn là `activity-order.drawio` có 6 trang Activity. Các hình khớp từng trang; mã ACT là mã của sơ đồ, không thay mã UC/FR/NFR.
+Đây là bộ mô hình nghiệp vụ để review SRS và luồng, không phải ảnh tạo bằng AI hoặc bằng chứng E2E. Đã dựng bằng native shape/connector, mở trong draw.io và xuất trực tiếp SVG/PNG bằng File → Export as. Nguồn chuẩn là `../activity-order.drawio` có 6 trang Activity. Các hình khớp từng trang; mã ACT là mã của sơ đồ, không thay mã UC/FR/NFR.
 
 **Loại mô hình: thiết kế hành vi theo yêu cầu (to-be).** Cả sáu trang dùng cùng loại mô hình. Các chi tiết API trùng với hợp đồng đã kiểm tra; riêng khả năng đối chiếu FAILURE của đúng lần thử trong ACT-04 là điều kiện thiết kế an toàn, không được suy ra từ một trạng thái PAYMENT_FAILED cũ. Khoảng cách triển khai được tách sang bảng review, không đổi yêu cầu để hợp thức hóa lỗi code.
 
@@ -14,14 +14,14 @@ Bản v1.1 đã hoàn thành các mục bắt buộc của Task 2.1 trong phạm
 
 | Trang | Chức năng | FR | Ảnh |
 |---|---|---|---|
-| ACT-00 | Tổng quan menu → giỏ → xác thực → đơn → payment → history | FR-01–18 | [PNG](activity-ACT-00.png), [SVG](activity-order.svg) |
-| ACT-01 | Menu, lựa chọn size/topping/quantity, ước tính và giỏ | FR-01–05, FR-17 | [PNG](activity-ACT-01.png), [SVG](activity-ACT-01.svg) |
-| ACT-02 | Register/Login, phiên JWT và API bảo vệ | FR-06–07 | [PNG](activity-ACT-02.png), [SVG](activity-ACT-02.svg) |
-| ACT-03 | Định giá/snapshot, idempotency, giữ nguyên liệu và rollback | FR-07–12 | [PNG](activity-ACT-03.png), [SVG](activity-ACT-03.svg) |
-| ACT-04 | Mock Wallet/Card, failure/retry, đối chiếu kết quả chưa rõ | FR-13–14 | [PNG](activity-ACT-04.png), [SVG](activity-ACT-04.svg) |
-| ACT-05 | List/detail/status owner-scoped và cursor | FR-07, FR-09, FR-15–16, FR-18 | [PNG](activity-ACT-05.png), [SVG](activity-ACT-05.svg) |
+| ACT-00 | Tổng quan menu → giỏ → xác thực → đơn → payment → history | FR-01–18 | [PNG](../png/activity-ACT-00.png), [SVG](../svg/activity-order.svg) |
+| ACT-01 | Menu, lựa chọn size/topping/quantity, ước tính và giỏ | FR-01–05, FR-17 | [PNG](../png/activity-ACT-01.png), [SVG](../svg/activity-ACT-01.svg) |
+| ACT-02 | Register/Login, phiên JWT và API bảo vệ | FR-06–07 | [PNG](../png/activity-ACT-02.png), [SVG](../svg/activity-ACT-02.svg) |
+| ACT-03 | Định giá/snapshot, idempotency, giữ nguyên liệu và rollback | FR-07–12 | [PNG](../png/activity-ACT-03.png), [SVG](../svg/activity-ACT-03.svg) |
+| ACT-04 | Mock Wallet/Card, failure/retry, đối chiếu kết quả chưa rõ | FR-13–14 | [PNG](../png/activity-ACT-04.png), [SVG](../svg/activity-ACT-04.svg) |
+| ACT-05 | List/detail/status owner-scoped và cursor | FR-07, FR-09, FR-15–16, FR-18 | [PNG](../png/activity-ACT-05.png), [SVG](../svg/activity-ACT-05.svg) |
 
-![Tổng quan Activity BrewLite](activity-order.svg)
+![Tổng quan Activity BrewLite](../svg/activity-order.svg)
 
 ## Quy tắc đọc UML
 
@@ -45,7 +45,7 @@ Bản v1.1 đã hoàn thành các mục bắt buộc của Task 2.1 trong phạm
 
 ## Cách mở và chỉnh
 
-1. Mở draw.io → File → Open from → Device → `activity-order.drawio`.
+1. Mở draw.io → File → Open from → Device → `../activity-order.drawio`.
 2. Chuyển giữa 6 tab ACT-00–ACT-05; zoom để đọc từng trang.
 3. Sửa node/guard/connector trực tiếp. Giữ đường đi tránh cắt qua action/final; xuất lại cả ảnh liên quan sau khi đổi nguồn.
 4. Export SVG và PNG ở Size=Diagram, nền trắng; không đổi đuôi HTML thành SVG. Nguồn `.drawio` là file chỉnh sửa chính thức.
@@ -53,7 +53,7 @@ Bản v1.1 đã hoàn thành các mục bắt buộc của Task 2.1 trong phạm
 
 ## Tài liệu liên quan
 
-- [Bối cảnh và phạm vi](../../requirements/task1.1/context-and-scope.md)
+- [Bối cảnh và phạm vi](../../../requirements/task1.1/context-and-scope.md)
 - [Đối chiếu và các điểm chưa khớp](activity-consistency-review.md)
 - [Mapping FR/AC → Activity → Code/Test](activity-traceability.md)
 

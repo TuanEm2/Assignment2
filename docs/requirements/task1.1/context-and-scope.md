@@ -136,12 +136,12 @@ Mức MoSCoW và AC của từng FR giữ theo bản Huy: FR-02, FR-17, FR-18 l�
 
 - Task 1.2: bản FR Huy; phần NFR do Ân Trương theo phân công, chưa nhận trong gói đầu vào này.
 - Task 1.3: đặc tả Đặt đơn và Thanh toán do Ân Trương/Tuấn Em theo phân công. Bản Checkout hiện có trong repo là đầu vào đối chiếu, không thay việc họ chốt bản cuối.
-- Task 2.1: `../../diagrams/task2.1/activity-order.drawio` (6 trang ACT-00–ACT-05), các ảnh SVG và `../../diagrams/task2.1/activity-order.md`.
-- Review chéo: `../../diagrams/task2.1/activity-consistency-review.md` và `../../diagrams/task2.1/activity-traceability.md`.
+- Task 2.1: `../../diagrams/task2.1/activity-order.drawio` (6 trang ACT-00–ACT-05), các ảnh SVG và `../../diagrams/task2.1/md/activity-order.md`.
+- Review chéo: `../../diagrams/task2.1/md/activity-consistency-review.md` và `../../diagrams/task2.1/md/activity-traceability.md`.
 - Người làm matrix chung cần nối mã UC/story chính thức với các ACT/FR đã liệt kê. SH/ASM/CON/RSK/ACT là mã nội bộ của tạo phẩm, không phải mã FR/NFR/UC được tự thêm vào SRS.
 
 Bản này không tuyên bố đã phỏng vấn stakeholder, đã có NFR được duyệt, đã chạy lại toàn bộ tests hoặc đã nghiệm thu production.
 
 ## 12. Quy tắc nhất quán với thiết kế
 
-Bộ Activity v1.1 là thiết kế hành vi theo FR/AC, không phải mô tả rằng mọi nhánh đã được mã nguồn hiện thực đúng. Các quy tắc dùng chung nằm ở `../../diagrams/task2.1/activity-flow-contract.md`. Mâu thuẫn ở tài liệu khác hoặc khoảng cách code được ghi tại `../../diagrams/task2.1/activity-consistency-review.md`; không đưa hành vi sai vào phạm vi chỉ để khớp code. Checklist đường đi nằm ở `../../diagrams/task2.1/kiem-tra-luong-e2e.md`.
+Bộ Activity v1.1 là thiết kế hành vi theo FR/AC, không phải mô tả rằng mọi nhánh đã được mã nguồn hiện thực đúng. Các quy tắc dùng chung nằm ở `../../diagrams/task2.1/md/activity-flow-contract.md`. Mâu thuẫn ở tài liệu khác hoặc khoảng cách code được ghi tại `../../diagrams/task2.1/md/activity-consistency-review.md`; không đưa hành vi sai vào phạm vi chỉ để khớp code. Checklist đường đi nằm ở `../../diagrams/task2.1/md/kiem-tra-luong-e2e.md`.
