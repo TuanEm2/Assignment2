@@ -8,6 +8,12 @@
    `docker compose exec api node apps/api/prisma/seed.mjs`.
 4. Menu uses `NEXT_PUBLIC_MENU_DATA_SOURCE=api` and `NEXT_PUBLIC_PRODUCT_DETAIL_ENABLED=true` during the Docker web build.
 
+When seeding Render from your computer, use its External Database URL with TLS.
+The seed allows up to 120 seconds for its transaction to account for network
+latency. If an earlier run failed with Prisma `P2028` at 15000 ms, pull the latest
+code and run `npm run db:seed` again. A failed transaction rolls back; rerunning
+the seed fills missing sample data without resetting existing prices or stock.
+
 ## Mock payment outcome selector
 
 With API `PAYMENT_MODE=mock` and Web `NEXT_PUBLIC_PAYOS_ENABLED=false` (the defaults),

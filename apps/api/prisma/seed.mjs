@@ -105,7 +105,9 @@ try {
         });
       }
     }
-  }, { timeout: 15000 });
+  // Seeding through Render's external URL adds a network round trip per upsert.
+  // Keep the catalog atomic while allowing slower remote connections to finish.
+  }, { timeout: 120_000 });
   console.log('Đã kiểm tra và bổ sung dữ liệu mẫu BrewLite.');
 } finally {
   await prisma.$disconnect();
