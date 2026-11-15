@@ -5,6 +5,7 @@ import {
 import { randomInt } from 'node:crypto';
 import { OrderStatus, PaymentMethod, PaymentOutcome, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { InventoryService } from '../inventory/inventory.service';
 import { assertOrderStatusTransition } from '../orders/order-status';
 import { parseOrderUuid } from '../orders/order-input';
 import { payosCreateSignature, verifyPayosWebhook } from './payos-crypto';
@@ -18,7 +19,7 @@ interface PayosConfig {
 
 @Injectable()
 export class PayosService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService, private readonly inventory: InventoryService) {}
 
   private config(): PayosConfig {
     if (process.env.PAYOS_ENABLED !== 'true' || process.env.PAYMENT_MODE !== 'payos') {
@@ -38,12 +39,109 @@ export class PayosService {
     return { clientId: PAYOS_CLIENT_ID, apiKey: PAYOS_API_KEY, checksumKey: PAYOS_CHECKSUM_KEY, frontendOrigin: url.origin };
   }
 
+
+  /** Read the provider state. Fail closed if it cannot be verified. */
+  private async providerRequest(config: PayosConfig, code: number, method: 'GET' | 'POST' = 'GET') {
+    let response: Response;
+    try {
+      response = await fetch(`https://api-merchant.payos.vn/v2/payment-requests/${code}${method === 'POST' ? '/cancel' : ''}`, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          'x-client-id': config.clientId,
+          'x-api-key': config.apiKey,
+        },
+        ...(method === 'POST' ? { body: JSON.stringify({ cancellationReason: 'Customer requested cancellation' }) } : {}),
+        signal: AbortSignal.timeout(15_000),
+      });
+    } catch {
+      throw new ServiceUnavailableException('Unable to verify PayOS status; please try again later');
+    }
+    if (!response.ok) throw new ServiceUnavailableException('Unable to verify PayOS status');
+    const payload: unknown = await response.json().catch(() => null);
+    if (!payload || typeof payload !== 'object') throw new ServiceUnavailableException('Invalid PayOS status response');
+    const body = payload as Record<string, unknown>;
+    const data = body.data;
+    if (body.code !== '00' || !data || typeof data !== 'object') {
+      throw new ServiceUnavailableException('PayOS did not confirm the request');
+    }
+    const info = data as Record<string, unknown>;
+    if (info.orderCode !== code || typeof info.status !== 'string') {
+      throw new ServiceUnavailableException('PayOS response did not match the checkout');
+    }
+    return info.status;
+  }
+
+  /** Cancel an unpaid order only after PayOS has confirmed cancellation. */
+  async cancel(userId: string, inputOrderId: string) {
+    const config = this.config();
+    const owner = parseOrderUuid(userId, 'userId');
+    const orderId = parseOrderUuid(inputOrderId, 'orderId');
+    const order = await this.prisma.order.findFirst({
+      where: { id: orderId, userId: owner }, select: { status: true, payment: { select: { id: true } } },
+    });
+    if (!order) throw new NotFoundException('Order not found');
+    if (order.status === OrderStatus.CANCELLED) return { orderId, status: 'CANCELLED' };
+    if (order.payment || ![OrderStatus.PENDING, OrderStatus.PAYMENT_FAILED].includes(order.status)) {
+      throw new ConflictException('Paid or processing orders cannot be cancelled here');
+    }
+    const attempt = await this.prisma.payosCheckout.findFirst({
+      where: { orderId }, orderBy: [{ createdAt: 'desc' }, { orderCode: 'desc' }],
+    });
+    if (attempt && !attempt.checkoutUrl) {
+      throw new ConflictException('Checkout creation is unresolved; check status before cancelling');
+    }
+    if (attempt) {
+      let status = await this.providerRequest(config, attempt.orderCode);
+      if (status === 'PAID' || status === 'PROCESSING') {
+        throw new ConflictException('Payment may have been received; wait for payment confirmation');
+      }
+      if (status === 'PENDING') status = await this.providerRequest(config, attempt.orderCode, 'POST');
+      if (status !== 'CANCELLED' && status !== 'EXPIRED') {
+        throw new ConflictException('PayOS cancellation could not be confirmed');
+      }
+    }
+    await this.prisma.$transaction(async tx => {
+      const locked = await tx.$queryRaw<Array<{ id: string }>>`
+        SELECT "id" FROM "Order" WHERE "id" = ${orderId}::uuid AND "userId" = ${owner}::uuid FOR UPDATE
+      `;
+      if (!locked.length) throw new NotFoundException('Order not found');
+      const current = await tx.order.findUniqueOrThrow({ where: { id: orderId }, select: { status: true } });
+      const payment = await tx.payment.findUnique({ where: { orderId } });
+      if (payment) throw new ConflictException('Order already paid');
+      assertOrderStatusTransition(current.status, OrderStatus.CANCELLED);
+      await tx.order.update({ where: { id: orderId }, data: { status: OrderStatus.CANCELLED } });
+      await this.inventory.releaseStock(tx, orderId);
+      if (attempt) await tx.payosCheckout.updateMany({
+        where: { orderCode: attempt.orderCode }, data: { status: 'CANCELLED' },
+      });
+    });
+    return { orderId, status: 'CANCELLED' };
+  }
+
   async checkout(userId: string, inputOrderId: string) {
     const config = this.config();
     const owner = parseOrderUuid(userId, 'userId');
     const orderId = parseOrderUuid(inputOrderId, 'orderId');
 
-    // A UNIQUE orderId prevents two real payment links for one order.
+    // Check any saved link with PayOS before reusing it. A closed link needs a fresh orderCode.
+    const latest = await this.prisma.payosCheckout.findFirst({
+      where: { orderId }, orderBy: [{ createdAt: 'desc' }, { orderCode: 'desc' }],
+    });
+    let closedLink = false;
+    if (latest?.checkoutUrl) {
+      const providerStatus = await this.providerRequest(config, latest.orderCode);
+      if (providerStatus === 'PAID' || providerStatus === 'PROCESSING') {
+        throw new ConflictException('Payment is processing or already received; check order status');
+      }
+      if (providerStatus === 'PENDING') {
+        return { orderId, orderCode: latest.orderCode, checkoutUrl: latest.checkoutUrl };
+      }
+      if (providerStatus !== 'CANCELLED' && providerStatus !== 'EXPIRED') {
+        throw new ConflictException('PayOS link status is not safe for retry');
+      }
+      closedLink = true;
+    }
     // External API calls happen OUTSIDE the DB transaction, not while holding DB row locks.
     const record = await this.prisma.$transaction(async (tx) => {
       const locked = await tx.$queryRaw<Array<{ id: string }>>`
@@ -58,8 +156,16 @@ export class PayosService {
       if (!Number.isSafeInteger(order.total) || order.total < 2000) {
         throw new BadRequestException('Order amount is outside PayOS payment limits');
       }
-      const prior = await tx.payosCheckout.findUnique({ where: { orderId } });
-      if (prior) return prior;
+      const prior = await tx.payosCheckout.findFirst({
+        where: { orderId }, orderBy: [{ createdAt: 'desc' }, { orderCode: 'desc' }],
+      });
+      if (prior && (!latest || prior.orderCode !== latest.orderCode)) {
+        throw new ConflictException('Checkout has changed; refresh its status');
+      }
+      if (prior && !closedLink) return prior;
+      if (prior) await tx.payosCheckout.update({
+        where: { orderCode: prior.orderCode }, data: { status: 'CANCELLED' },
+      });
       // 10-digit positive code; collisions are rejected by the database PK.
       // Never use a client-controlled code or amount.
       return tx.payosCheckout.create({
