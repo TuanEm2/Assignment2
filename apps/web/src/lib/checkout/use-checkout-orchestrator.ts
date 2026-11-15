@@ -59,7 +59,13 @@ async function defaultCreateOrder(
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || 'Không thể tạo đơn hàng lúc này');
+    if (response.status === 401) useAuthStore.getState().logout();
+    const detail = typeof errorData?.message === 'string' ? errorData.message : 'Không thể tạo đơn hàng lúc này';
+    const code = typeof errorData?.code === 'string' ? errorData.code : '';
+    if (code === 'INSUFFICIENT_INGREDIENT') throw new Error('Không đủ nguyên liệu để đặt số lượng này. Hãy giảm số lượng trong giỏ.');
+    if (code === 'INGREDIENT_RECIPE_NOT_CONFIGURED') throw new Error('Sản phẩm chưa được cấu hình công thức nguyên liệu.');
+    if (response.status === 401) throw new Error('Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.');
+    throw new Error(detail);
   }
   return response.json();
 }
@@ -99,6 +105,10 @@ async function defaultProcessPayment(
   }
   const value = body as Record<string, unknown>;
   if (!response.ok) {
+    if (response.status === 401) {
+      useAuthStore.getState().logout();
+      throw new Error('Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.');
+    }
     if (response.status === 409 || response.status >= 500) {
       throw new PaymentStatusUnknownError('Thanh toán có thể đã được xử lý; cần kiểm tra trạng thái.');
     }
@@ -196,14 +206,14 @@ export function useCheckoutOrchestrator({
         // Confirmed FAILURE is a completed attempt: next attempt needs a NEW
         // payment key, while the ORDER idempotency key remains the same.
         currentAttempt.paymentKey = `pay-idem-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-        setState({ phase: 'failed', orderTotal: order.total });
+        setState({ phase: 'failed', orderTotal: order.total, message: 'Thanh toán mô phỏng thất bại. Giỏ hàng được giữ lại; bạn có thể thử lại.' });
       }
     } catch (cause: unknown) {
       console.error('Checkout orchestration error:', cause);
       if (cause instanceof PaymentStatusUnknownError) {
-        setState({ phase: 'unknown', orderTotal: subtotal });
+        setState({ phase: 'unknown', orderTotal: subtotal, message: cause.message });
       } else {
-        setState({ phase: 'failed', orderTotal: subtotal });
+        setState({ phase: 'failed', orderTotal: subtotal, message: cause instanceof Error ? cause.message : 'Có lỗi khi đặt hoặc thanh toán đơn hàng.' });
       }
     }
   };

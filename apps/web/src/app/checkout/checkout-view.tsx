@@ -8,7 +8,7 @@ export type PaymentMethod = 'MOCK_WALLET' | 'MOCK_CARD';
 export type PaymentOutcome = 'SUCCESS' | 'FAILURE';
 
 export type CheckoutState =
-  | { phase: 'review' | 'processing' | 'failed' | 'unknown'; orderTotal?: number }
+  | { phase: 'review' | 'processing' | 'failed' | 'unknown'; orderTotal?: number; message?: string }
   | { phase: 'paid'; orderId: string; orderTotal: number };
 
 interface CheckoutViewProps {
@@ -129,12 +129,12 @@ export function CheckoutView({ items, subtotal, state, onPay, onCheckStatus, che
       {processing && <p role="status" className="text-sm">Đang xử lý thanh toán…</p>}
       {state.phase === 'failed' && (
         <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-900">
-          Thanh toán thất bại. Giỏ hàng được giữ lại, bạn có thể thử lại.
+          {state.message || 'Thanh toán thất bại. Giỏ hàng được giữ lại, bạn có thể thử lại.'}
         </p>
       )}
       {unknown && (
         <p role="alert" className="rounded-lg bg-amber-50 p-3 text-sm text-amber-950">
-          Chưa xác nhận được kết quả. Hãy kiểm tra lại trạng thái trước khi thanh toán lần nữa.
+          {state.message || 'Chưa xác nhận được kết quả. Hãy kiểm tra lại trạng thái trước khi thanh toán lần nữa.'}
         </p>
       )}
       {state.phase === 'review' && !onPay && (

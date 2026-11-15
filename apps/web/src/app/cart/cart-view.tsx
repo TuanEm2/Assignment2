@@ -1,6 +1,9 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
+import { getProductAvailability } from '@/lib/products/detail';
+import { selectIsAuthenticated, useAuthStore } from '@/stores/auth-store';
 import { useClientReady } from '@/lib/client-ready';
 import {
   getCartLineTotal,
@@ -28,6 +31,27 @@ export function CartView() {
   const subtotal = useCartStore(selectCartSubtotal);
   const setQuantity = useCartStore((state) => state.setQuantity);
   const removeItem = useCartStore((state) => state.removeItem);
+  const signedIn = useAuthStore(selectIsAuthenticated);
+  const [stock, setStock] = useState<Record<string, { status: 'ready' | 'error'; cups: number | null }>>({});
+
+  useEffect(() => {
+    const controller = new AbortController();
+    for (const item of items) {
+      if (!item.size) continue;
+      void getProductAvailability(item.productId, item.size.id, item.toppings.map((t) => t.id), controller.signal)
+        .then((cups) => {
+          if (!controller.signal.aborted) setStock((prev) => ({ ...prev, [item.id]: { status: 'ready', cups } }));
+        })
+        .catch(() => {
+          if (!controller.signal.aborted) setStock((prev) => ({ ...prev, [item.id]: { status: 'error', cups: null } }));
+        });
+    }
+    return () => controller.abort();
+  }, [items]);
+
+  const stockUnverified = items.some((item) => item.size && stock[item.id]?.status !== 'ready');
+  const stockExceeded = items.some((item) => item.size && stock[item.id]?.status === 'ready' && item.quantity > (stock[item.id].cups ?? 0));
+  const checkoutBlocked = Boolean(stockUnverified || stockExceeded);
 
   return (
     <main lang="vi" className="min-h-dvh bg-[#f7f3ec] px-4 py-8 text-[#30251d] sm:px-8 sm:py-12">
@@ -60,6 +84,15 @@ export function CartView() {
                       : 'Không topping'}
                   </p>
                   <p className="mt-1 text-sm text-stone-700">{vnd.format(getCartLineUnitPrice(item))} / ly</p>
+                  {item.size && stock[item.id]?.status === "ready" && (
+                    <p className="mt-2 text-sm text-stone-700">Ước tính tối đa {stock[item.id].cups} ly theo nguyên liệu hiện tại.</p>
+                  )}
+                  {item.size && stock[item.id]?.status === "error" && (
+                    <p role="alert" className="mt-2 text-sm text-red-800">Không kiểm tra được tồn kho. Hãy thử lại trước khi thanh toán.</p>
+                  )}
+                  {item.size && stock[item.id]?.status === "ready" && item.quantity > (stock[item.id].cups ?? 0) && (
+                    <p role="alert" className="mt-2 text-sm text-red-800">Số lượng vượt quá nguyên liệu có thể pha. Vui lòng giảm số lượng.</p>
+                  )}
                   <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
                     <div role="group" aria-label={`Số lượng ${item.productName}`} className="flex items-center gap-2">
                       <button
@@ -78,7 +111,7 @@ export function CartView() {
                         type="button"
                         className={controlClass}
                         aria-label={`Tăng số lượng ${item.productName}`}
-                        disabled={item.quantity >= MAX_CART_QUANTITY}
+                        disabled={item.quantity >= MAX_CART_QUANTITY || Boolean(item.size && (stock[item.id]?.status !== 'ready' || item.quantity >= (stock[item.id].cups ?? 0)))}
                         onClick={() => setQuantity(item.id, item.quantity + 1)}
                       >
                         +
@@ -109,12 +142,18 @@ export function CartView() {
                   <dd className="tabular-nums">{vnd.format(subtotal)}</dd>
                 </div>
               </dl>
-              <Link
-                href="/checkout"
-                className="mt-4 flex min-h-11 items-center justify-center rounded-lg bg-amber-900 px-4 py-2 font-semibold text-white hover:bg-amber-800"
-              >
-                Thanh toán
-              </Link>
+              {signedIn && checkoutBlocked ? (
+                <button type="button" disabled className="mt-4 flex min-h-11 w-full items-center justify-center rounded-lg bg-stone-400 px-4 py-2 font-semibold text-white">
+                  {stockUnverified ? 'Đang kiểm tra tồn kho' : 'Điều chỉnh số lượng trước khi thanh toán'}
+                </button>
+              ) : (
+                <Link
+                  href={signedIn ? '/checkout' : '/login?redirect=/checkout'}
+                  className="mt-4 flex min-h-11 items-center justify-center rounded-lg bg-amber-900 px-4 py-2 font-semibold text-white hover:bg-amber-800"
+                >
+                  Thanh toán
+                </Link>
+              )}
             </aside>
           </div>
         )}

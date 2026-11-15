@@ -10,6 +10,7 @@ import {
 import userEvent from '@testing-library/user-event';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { getProducts, Menu, parseProducts, type Product } from './menu';
+import { useAuthStore } from '@/stores/auth-store';
 
 const products: Product[] = [
   {
@@ -30,6 +31,7 @@ const products: Product[] = [
 beforeEach(() => {
   vi.stubEnv('NEXT_PUBLIC_MENU_DATA_SOURCE', 'demo');
   vi.stubEnv('NEXT_PUBLIC_PRODUCT_DETAIL_ENABLED', 'false');
+  useAuthStore.getState().logout();
 });
 
 it('hiển thị loading rồi hiển thị sản phẩm', async () => {
@@ -245,4 +247,12 @@ it('demo không gọi backend', async () => {
   ).resolves.toHaveLength(4);
 
   expect(fetchSpy).not.toHaveBeenCalled();
+});
+it('trang chủ hiển thị đăng nhập/đăng ký và cho xem đơn khi đã đăng nhập', async () => {
+  render(<Menu loader={async () => products} />);
+  expect(await screen.findByRole('link', { name: 'Đăng nhập' })).toHaveAttribute('href', '/login');
+  expect(screen.getByRole('link', { name: 'Đăng ký' })).toHaveAttribute('href', '/register');
+  useAuthStore.getState().setAuth('mock-jwt', { id: 'user-01', email: 'tester@brewlite.test' });
+  await waitFor(() => expect(screen.getByRole('link', { name: 'Lịch sử đơn' })).toHaveAttribute('href', '/orders'));
+  expect(screen.queryByRole('link', { name: 'Đăng nhập' })).not.toBeInTheDocument();
 });

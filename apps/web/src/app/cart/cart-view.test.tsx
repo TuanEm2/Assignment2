@@ -1,11 +1,17 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, within, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { useAuthStore } from '@/stores/auth-store';
 import { useCartStore } from '@/stores/cart-store';
 import { CartView } from './cart-view';
 
 describe('CartView', () => {
-  beforeEach(() => useCartStore.getState().clearCart());
+  beforeEach(() => {
+    useCartStore.getState().clearCart();
+    useAuthStore.getState().logout();
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json({ availableCups: 99 })));
+  });
+  afterEach(() => vi.unstubAllGlobals());
 
   it('hiển thị giỏ trống và liên kết về menu', () => {
     render(<CartView />);
@@ -27,8 +33,8 @@ describe('CartView', () => {
     render(<CartView />);
 
     expect(screen.getByText(/size m · trân châu/i)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Thanh toán' })).toHaveAttribute('href', '/checkout');
-
+    expect(screen.getByRole('link', { name: 'Thanh toán' })).toHaveAttribute('href', '/login?redirect=/checkout');
+    await waitFor(() => expect(screen.getByRole('button', { name: /tăng số lượng americano/i })).toBeEnabled());
     await user.click(screen.getByRole('button', { name: /tăng số lượng americano/i }));
     expect(screen.getByRole('status', { name: 'Số lượng hiện tại' })).toHaveTextContent('2');
     expect(screen.getAllByText(/100\.000/)).toHaveLength(2);
@@ -57,6 +63,25 @@ describe('CartView', () => {
     await user.click(decrease);
     expect(increase).toBeEnabled();
     expect(screen.getByRole('status', { name: 'Số lượng hiện tại' })).toHaveTextContent(/^98$/);
+  });
+
+  it('chặn tăng vượt số ly khả dụng và chặn checkout khi giỏ cũ đã vượt tồn kho', async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json({ availableCups: 40 })));
+    useAuthStore.getState().setAuth('test-token', { id: 'id-1', email: 'demo@example.test' });
+    useCartStore.getState().addItem({
+      productId: 'americano', productName: 'Americano', basePrice: 40000,
+      size: { id: 'small', name: 'S', price: 0 }, quantity: 40,
+    });
+    render(<CartView />);
+    await waitFor(() => expect(screen.getByText(/ước tính tối đa 40 ly/i)).toBeInTheDocument());
+    expect(screen.getByRole('button', { name: 'Tăng số lượng Americano' })).toBeDisabled();
+    expect(screen.getByRole('link', { name: 'Thanh toán' })).toHaveAttribute('href', '/checkout');
+    await user.click(screen.getByRole('button', { name: 'Giảm số lượng Americano' }));
+    expect(screen.getByRole('button', { name: 'Tăng số lượng Americano' })).toBeEnabled();
+    useCartStore.getState().setQuantity(useCartStore.getState().items[0].id, 41);
+    await waitFor(() => expect(screen.getByText(/số lượng vượt quá nguyên liệu/i)).toBeInTheDocument());
+    expect(screen.queryByRole('link', { name: 'Thanh toán' })).not.toBeInTheDocument();
   });
 
   it('tách các dòng cùng món theo size và topping, tính lại tổng khi xóa một dòng', async () => {

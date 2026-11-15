@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { ProductDetail } from './product-detail';
 import { useCartStore } from '@/stores/cart-store';
 import { getProductDetail, parseProductDetail, type ProductDetail as Product } from '@/lib/products/detail';
@@ -8,7 +8,8 @@ import { getProductDetail, parseProductDetail, type ProductDetail as Product } f
 const product: Product = { id: 'drink-1', slug: 'cappuccino', name: 'Cappuccino', price: 45000,
   imageUrl: '/images/products/cappuccino.jpg', sizes: [{ id: 's', name: 'S', price: 0 }, { id: 'l', name: 'L', price: 10000 }],
   toppings: [{ id: 'cream', name: 'Kem', price: 10000 }] };
-beforeEach(() => { useCartStore.setState({ items: [] }); localStorage.clear(); });
+beforeEach(() => { useCartStore.setState({ items: [] }); localStorage.clear(); vi.stubGlobal('fetch', vi.fn(async () => Response.json({ availableCups: 99 }))); });
+afterEach(() => vi.unstubAllGlobals());
 
 it('loading, chọn tùy chọn và thêm đúng cấu hình vào store TV1', async () => {
   const user = userEvent.setup();
@@ -24,6 +25,7 @@ it('loading, chọn tùy chọn và thêm đúng cấu hình vào store TV1', as
   const input = screen.getByRole('spinbutton', { name: 'Số lượng' });
   await user.clear(input); await user.type(input, '2');
   expect(screen.getByLabelText('Tổng tạm tính')).toHaveTextContent(/130.000/);
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Thêm vào giỏ' })).toBeEnabled());
   await user.click(screen.getByRole('button', { name: 'Thêm vào giỏ' }));
   expect(useCartStore.getState().items).toEqual([expect.objectContaining({ productId: 'drink-1', productName: 'Cappuccino',
     basePrice: 45000, size: product.sizes[1], toppings: product.toppings, quantity: 2 })]);
@@ -52,6 +54,7 @@ it('chặn số lượng không hợp lệ và bỏ topping trước khi thêm',
   await user.clear(input); await user.type(input, '1');
   const cream = screen.getByRole('checkbox');
   await user.click(cream); await user.click(cream);
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Thêm vào giỏ' })).toBeEnabled());
   await user.click(screen.getByRole('button', { name: 'Thêm vào giỏ' }));
   expect(useCartStore.getState().items[0].toppings).toEqual([]);
 });
@@ -105,4 +108,24 @@ it('không cho thêm vượt số ly pha được theo công thức nguyên li�
   } finally {
     vi.unstubAllGlobals();
   }
+});
+
+it('tính cả số lượng đang trong giỏ khi thêm cùng cấu hình', async () => {
+  const user = userEvent.setup();
+  vi.stubGlobal('fetch', vi.fn(async () => Response.json({ availableCups: 40 })));
+  useCartStore.getState().addItem({
+    productId: product.id, productName: product.name, basePrice: product.price,
+    size: product.sizes[0], quantity: 39,
+  });
+  render(<ProductDetail productId={product.id} loader={async () => product} />);
+  expect(await screen.findByText(/ước tính còn 40 ly/i)).toBeInTheDocument();
+  const input = screen.getByRole('spinbutton', { name: 'Số lượng' });
+  await user.clear(input);
+  await user.type(input, '2');
+  expect(screen.getByRole('button', { name: 'Thêm vào giỏ' })).toBeDisabled();
+  await user.clear(input);
+  await user.type(input, '1');
+  expect(screen.getByRole('button', { name: 'Thêm vào giỏ' })).toBeEnabled();
+  await user.click(screen.getByRole('button', { name: 'Thêm vào giỏ' }));
+  expect(useCartStore.getState().items[0].quantity).toBe(40);
 });

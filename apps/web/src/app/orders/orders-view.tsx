@@ -230,7 +230,8 @@ export function OrdersView({
       ) : (
         <div className="orders-list">
           {orders.map((ord) => (
-            <Link key={ord.id} href={`/orders/${ord.id}`} className="order-card block text-inherit no-underline">
+            <div key={ord.id} className="order-card">
+              <Link href={`/orders/${ord.id}`} className="block text-inherit no-underline">
               <div className="order-card-header">
                 <span className="order-id">{`Mã đơn: #${ord.id.slice(0, 8)}`}</span>
                 {getStatusBadge(ord.status)}
@@ -242,7 +243,11 @@ export function OrdersView({
                 )}
                 <p className="order-total">Tổng tiền: {vnd.format(ord.total)}</p>
               </div>
-            </Link>
+              </Link>
+              {(ord.status === "PENDING" || ord.status === "PAYMENT_FAILED") && (
+                <Link href={`/orders/${ord.id}`} className="mt-2 inline-flex rounded-md bg-amber-900 px-4 py-2 font-semibold text-white">Thanh toán lại</Link>
+              )}
+            </div>
           ))}
 
           {nextCursor && (

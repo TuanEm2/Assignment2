@@ -50,7 +50,9 @@ async function defaultLoginHandler(credentials: { email: string; password: strin
 export function LoginForm({ onLogin = defaultLoginHandler }: { onLogin?: LoginHandler }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectPath = searchParams.get('redirect') || '/menu';
+  const requestedRedirect = searchParams.get('redirect') || '/menu';
+  const redirectPath = requestedRedirect.startsWith('/') && !requestedRedirect.startsWith('//') && !requestedRedirect.includes('\\')
+    ? requestedRedirect : '/menu';
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
