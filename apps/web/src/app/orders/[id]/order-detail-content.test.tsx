@@ -106,6 +106,7 @@ describe('OrderDetailContent (Component Test TV6)', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/thanh toán thất bại/i)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Thanh toán lại (mô phỏng)' })).toBeInTheDocument();
     });
   });
 });
