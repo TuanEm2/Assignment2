@@ -1,0 +1,172 @@
+@startuml
+!pragma layout smetana
+title BrewLite · Assignment 2\nTask 2.3 · Sơ đồ lớp nghiệp vụ
+skinparam defaultFontName "Segoe UI"
+skinparam defaultFontSize 14
+skinparam titleFontSize 19
+skinparam shadowing false
+skinparam roundcorner 8
+skinparam classAttributeIconSize 0
+skinparam ArrowFontSize 12
+skinparam nodesep 45
+skinparam ranksep 54
+hide circle
+hide empty methods
+
+class User {
+  <U+002B>id : UUID
+  <U+002B>email : String
+  <U+002B>role : UserRole
+}
+
+class Order {
+  <U+002B>id : UUID
+  <U+002B>status : OrderStatus
+  <U+002B>total : Int
+  <U+002B>createdAt : DateTime
+  <U+002D>idempotencyKey : String [0..1]
+  <U+002D>stockReleasedAt : DateTime [0..1]
+}
+
+class OrderItem {
+  <U+002B>id : UUID
+  <U+002B>productName : String
+  <U+002B>sizeName : SizeName [0..1]
+  <U+002B>toppings : Json
+  <U+002B>quantity : Int
+  <U+002B>unitPrice : Int
+  <U+002B>lineTotal : Int
+}
+
+class Product {
+  <U+002B>id : UUID
+  <U+002B>slug : String
+  <U+002B>name : String
+  <U+002B>price : Int
+  <U+002B>imageUrl : String
+}
+
+class ProductSize {
+  <U+002B>id : UUID
+  <U+002B>name : SizeName
+  <U+002B>price : Int
+}
+
+class ProductTopping {
+  <U+002B>id : UUID
+  <U+002B>name : String
+  <U+002B>price : Int
+}
+
+class ProductSizeIngredient {
+  <U+002B>quantity : Int
+}
+
+class ProductToppingIngredient {
+  <U+002B>quantity : Int
+}
+
+class Payment {
+  <U+002B>id : UUID
+  <U+002B>method : PaymentMethod
+  <U+002B>amount : Int
+  <U+002B>createdAt : DateTime
+}
+
+class PaymentAttempt {
+  <U+002B>id : UUID
+  <U+002D>idempotencyKey : String
+  <U+002B>method : PaymentMethod
+  <U+002B>outcome : PaymentOutcome
+  <U+002B>amount : Int
+}
+
+class OrderIngredient {
+  <U+002B>orderId : UUID
+  <U+002B>ingredientId : UUID
+  <U+002B>quantity : Int
+}
+
+class Ingredient {
+  <U+002B>id : UUID
+  <U+002B>code : String
+  <U+002B>name : String
+  <U+002B>unit : IngredientUnit
+  <U+002D>stock : Int
+  <U+002D>version : Int
+}
+
+class Promotion <<extend>> {
+  <U+002B>id : UUID
+  <U+002B>code : String
+  <U+002B>discountAmount : Int
+}
+
+class LoyaltyTransaction <<extend>> {
+  <U+002B>id : UUID
+  <U+002B>points : Int
+  <U+002B>createdAt : DateTime
+}
+
+User "1" -right- "0..*" Order : đặt
+Order "1" *-right- "1..*" OrderItem : gồm
+OrderItem "0..*" -right- "1" Product : tham chiếu
+Product "1" *-down- "0..*" ProductSize
+Product "1" *-down- "0..*" ProductTopping
+OrderItem "0..*" -- "0..1" ProductSize : size đã chọn
+ProductSize "1" *-down- "0..*" ProductSizeIngredient : công thức
+ProductTopping "1" *-down- "0..*" ProductToppingIngredient : công thức
+ProductSizeIngredient "0..*" -- "1" Ingredient
+ProductToppingIngredient "0..*" -- "1" Ingredient
+Order "1" -down- "0..1" Payment : thanh toán
+Order "1" -down- "0..*" PaymentAttempt : lần thử
+Order "1" *-down- "0..*" OrderIngredient : lượng đã giữ
+OrderIngredient "0..*" -right- "1" Ingredient : nguyên liệu
+
+Promotion "0..1" -down- "0..*" Order
+User "1" -up- "0..*" LoyaltyTransaction
+LoyaltyTransaction "0..1" -right- "1" Order
+
+enum OrderStatus <<enumeration>> {
+  PENDING
+  PAYMENT_FAILED
+  PAID
+  PREPARING
+  READY
+  COMPLETED
+  CANCELLED
+}
+enum UserRole <<enumeration>> {
+  CUSTOMER
+  STAFF
+  ADMIN
+}
+enum SizeName <<enumeration>> {
+  S
+  M
+  L
+}
+enum PaymentMethod <<enumeration>> {
+  MOCK_WALLET
+  MOCK_CARD
+}
+enum PaymentOutcome <<enumeration>> {
+  SUCCESS
+  FAILURE
+}
+enum IngredientUnit <<enumeration>> {
+  G
+  ML
+  PIECE
+}
+
+User .down.> UserRole
+Order .up.> OrderStatus
+OrderItem .up.> SizeName
+ProductSize ..> SizeName
+Payment .down.> PaymentMethod
+PaymentAttempt .down.> PaymentMethod
+PaymentAttempt .down.> PaymentOutcome
+Ingredient .down.> IngredientUnit
+
+@enduml
