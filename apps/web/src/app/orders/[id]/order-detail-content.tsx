@@ -73,6 +73,34 @@ export function OrderDetailContent({
   const [error, setError] = useState('');
   const [statusCode, setStatusCode] = useState<number | null>(null);
   const [attempt, setAttempt] = useState(0);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState('');
+
+  async function cancelOrder() {
+    if (!token || cancelling || !window.confirm('Bạn chắc chắn muốn hủy đơn hàng chưa thanh toán?')) return;
+    setCancelling(true);
+    setCancelError('');
+    try {
+      const base = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000').replace(/\/+$/, '');
+      const prefix = base.endsWith('/api') ? base : `${base}/api`;
+      const response = await fetch(`${prefix}/payments/payos/cancel/${encodeURIComponent(orderId)}`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) {
+        const data: unknown = await response.json().catch(() => null);
+        const message = data && typeof data === 'object' && 'message' in data
+          ? (data as { message?: unknown }).message : undefined;
+        throw new Error(typeof message === 'string' ? message : 'Không thể hủy đơn. Hãy kiểm tra trạng thái thanh toán.');
+      }
+      setLoading(true);
+      setAttempt(v => v + 1);
+    } catch (cause) {
+      setCancelError(cause instanceof Error ? cause.message : 'Không thể hủy đơn hàng.');
+    } finally {
+      setCancelling(false);
+    }
+  }
 
   useEffect(() => {
     if (!ready || !signedIn || !token) {
@@ -286,6 +314,17 @@ export function OrderDetailContent({
             }} />
           )}
 
+
+          {process.env.NEXT_PUBLIC_PAYOS_ENABLED === 'true' &&
+            (order.status === 'PENDING' || order.status === 'PAYMENT_FAILED') && (
+            <div className="mt-3">
+              <button type="button" disabled={cancelling} onClick={() => void cancelOrder()}
+                className="rounded-md border border-red-700 px-4 py-2 font-semibold text-red-800 disabled:opacity-50">
+                {cancelling ? 'Đang hủy đơn…' : 'Hủy đơn hàng'}
+              </button>
+              {cancelError && <p role="alert" className="mt-2 text-sm text-red-700">{cancelError}</p>}
+            </div>
+          )}
           <div className="border-t border-slate-100 pt-4 mt-3 flex justify-between items-center">
             <span className="text-base font-bold text-slate-900">Tổng thanh toán:</span>
             <span className="order-total text-xl text-amber-900">{vnd.format(order.total)}</span>
