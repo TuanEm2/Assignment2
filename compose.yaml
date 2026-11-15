@@ -29,6 +29,11 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-brewlite}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-brewlite}?schema=public
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
       PAYMENT_MODE: ${PAYMENT_MODE:-mock}
+      PAYOS_ENABLED: ${PAYOS_ENABLED:-false}
+      PAYOS_CLIENT_ID: ${PAYOS_CLIENT_ID:-}
+      PAYOS_API_KEY: ${PAYOS_API_KEY:-}
+      PAYOS_CHECKSUM_KEY: ${PAYOS_CHECKSUM_KEY:-}
+      WEB_PUBLIC_URL: ${WEB_PUBLIC_URL:-}
     ports:
       - "127.0.0.1:${API_HOST_PORT:-4000}:4000"
     depends_on:
@@ -50,6 +55,7 @@ services:
         NEXT_PUBLIC_MENU_DATA_SOURCE: ${NEXT_PUBLIC_MENU_DATA_SOURCE:-api}
         NEXT_PUBLIC_PRODUCT_DETAIL_ENABLED: ${NEXT_PUBLIC_PRODUCT_DETAIL_ENABLED:-true}
         NEXT_PUBLIC_MOCK_PAYMENT_TEST_CONTROLS: ${NEXT_PUBLIC_MOCK_PAYMENT_TEST_CONTROLS:-false}
+        NEXT_PUBLIC_PAYOS_ENABLED: ${NEXT_PUBLIC_PAYOS_ENABLED:-false}
     restart: unless-stopped
     environment:
       NODE_ENV: production

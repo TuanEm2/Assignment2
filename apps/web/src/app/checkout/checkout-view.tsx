@@ -50,6 +50,25 @@ export function CheckoutView({ items, subtotal, state, onPay, onCheckStatus, che
 
   const processing = state.phase === 'processing';
   const unknown = state.phase === 'unknown';
+  if (process.env.NEXT_PUBLIC_PAYOS_ENABLED === 'true') {
+    return (
+      <section className="mt-6 space-y-4 rounded-xl border border-emerald-200 bg-white p-5">
+        <h2 className="text-xl font-bold text-emerald-900">Thanh toán chuyển khoản PayOS</h2>
+        <p className="text-sm">Bạn sẽ được chuyển sang PayOS để quét mã VietQR bằng ứng dụng ngân hàng. Chỉ thanh toán sau khi kiểm tra số tiền và người nhận.</p>
+        {unknown ? (
+          <p role="alert">Chưa rõ kết quả thanh toán. Vui lòng kiểm tra lịch sử đơn và xác nhận trước khi thử lại.</p>
+        ) : items.length === 0 ? (
+          <p role="status">Giỏ hàng trống, không thể thanh toán.</p>
+        ) : (
+          <Link href="/checkout/payos" className="inline-block rounded-lg bg-emerald-800 px-4 py-3 font-semibold text-white hover:bg-emerald-900">
+            Tiếp tục tới PayOS / Quét QR
+          </Link>
+        )}
+        <p className="text-xs text-stone-600">Đơn chỉ được đánh dấu đã thanh toán sau khi backend xác thực thông báo PayOS hợp lệ.</p>
+      </section>
+    );
+  }
+
   const canPay = Boolean(onPay) && !processing && !unknown && items.length > 0;
 
   return (

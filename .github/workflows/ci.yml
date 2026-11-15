@@ -56,6 +56,9 @@ jobs:
       - name: CD helper tests
         run: npm run test:cd
 
+      - name: PayOS signature tests
+        run: npm run test:payos
+
       - name: Cart logic tests (TV1)
         run: npm run test:cart
 
