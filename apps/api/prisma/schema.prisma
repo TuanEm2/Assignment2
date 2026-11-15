@@ -145,7 +145,7 @@ model Order {
   user             User              @relation(fields: [userId], references: [id], onDelete: Restrict)
   items            OrderItem[]
   payment          Payment?
-  payosCheckout    PayosCheckout?
+  payosCheckouts   PayosCheckout[]
   attempts         PaymentAttempt[]
   ingredientUsages OrderIngredient[]
 
@@ -209,7 +209,7 @@ model PaymentAttempt {
 // Exactly one real PayOS link per BrewLite order; provider code is a positive integer.
 model PayosCheckout {
   orderCode     Int      @id
-  orderId       String   @unique @db.Uuid
+  orderId       String   @db.Uuid
   amount        Int
   checkoutUrl   String?
   paymentLinkId String?
@@ -217,4 +217,6 @@ model PayosCheckout {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   order         Order    @relation(fields: [orderId], references: [id], onDelete: Restrict)
+
+  @@index([orderId, createdAt])
 }
