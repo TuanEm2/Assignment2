@@ -107,6 +107,12 @@ export class PayosService {
       `;
       if (!locked.length) throw new NotFoundException('Order not found');
       const current = await tx.order.findUniqueOrThrow({ where: { id: orderId }, select: { status: true } });
+      const latest = await tx.payosCheckout.findFirst({
+        where: { orderId }, orderBy: [{ createdAt: 'desc' }, { orderCode: 'desc' }],
+      });
+      if (latest?.orderCode !== attempt?.orderCode) {
+        throw new ConflictException('Checkout changed during cancellation; check status');
+      }
       const payment = await tx.payment.findUnique({ where: { orderId } });
       if (payment) throw new ConflictException('Order already paid');
       assertOrderStatusTransition(current.status, OrderStatus.CANCELLED);
@@ -128,6 +134,14 @@ export class PayosService {
     const latest = await this.prisma.payosCheckout.findFirst({
       where: { orderId }, orderBy: [{ createdAt: 'desc' }, { orderCode: 'desc' }],
     });
+    const ownedOrder = await this.prisma.order.findFirst({
+      where: { id: orderId, userId: owner },
+      select: { status: true, payment: { select: { id: true } } },
+    });
+    if (!ownedOrder) throw new NotFoundException('Order not found');
+    if (ownedOrder.payment || ![OrderStatus.PENDING, OrderStatus.PAYMENT_FAILED].includes(ownedOrder.status)) {
+      throw new ConflictException('This order is no longer payable');
+    }
     let closedLink = false;
     if (latest?.checkoutUrl) {
       const providerStatus = await this.providerRequest(config, latest.orderCode);
@@ -181,7 +195,7 @@ export class PayosService {
     }
     // While the link is being created, concurrent duplicate requests must not call PayOS.
     const leased = await this.prisma.payosCheckout.updateMany({
-      where: { orderId, checkoutUrl: null, status: 'CREATING' },
+      where: { orderCode: record.orderCode, checkoutUrl: null, status: 'CREATING' },
       data: { status: 'REQUESTED' },
     });
     if (leased.count !== 1) throw new ConflictException('PayOS checkout is being prepared; retry status shortly');
