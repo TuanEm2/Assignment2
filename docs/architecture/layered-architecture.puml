@@ -1,0 +1,43 @@
+@startuml
+title BrewLite — Task 3.1: Kiến trúc phân lớp
+top to bottom direction
+skinparam defaultFontName DejaVu Sans
+skinparam defaultFontSize 14
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam ArrowColor #365569
+skinparam packageBorderColor #587387
+skinparam packageBackgroundColor #F5F8FB
+
+actor "Khách hàng" as User
+node "Thiết bị người dùng" as Device {
+  component "Trình duyệt desktop / mobile" as Browser
+}
+package "Presentation · apps/web" as Presentation {
+  component "Next.js 16 / React\nMenu · Cart · Checkout · Auth · History\nZustand: giỏ hàng / phiên đăng nhập" as Web
+}
+node "NestJS API · một tiến trình" as API {
+  component "HTTP boundary\nControllers · JWT guard\nKiểm tra input / quyền sở hữu" as HTTP
+  component "Application / domain services\nAuth · Products · OrderHistory\nOrders · Inventory · Payments · PayOS" as Domain
+  component "Prisma / persistence\nSchema · migrations\nTransactions · khóa hàng" as Prisma
+}
+database "PostgreSQL\nUsers · Catalog · Orders\nIngredients · Payments" as DB
+cloud "PayOS\nChỉ khi bật cấu hình" as Provider
+
+User --> Browser
+Browser --> Web : HTTP/HTTPS\nGiao diện và tài nguyên
+Browser --> HTTP : REST /api/*\nJWT khi cần
+Web -[hidden]down-> HTTP
+HTTP --> Domain
+Domain --> Prisma
+Prisma --> DB : PostgreSQL protocol
+Domain ..> Provider : HTTPS / webhook ký\nChỉ module PayOS
+
+legend bottom
+  |= Phạm vi |= Ghi chú |
+  | Frontend | Web responsive; PWA manifest/service worker chưa có. |
+  | Mock payment | PaymentsModule trong API, không phải container riêng. |
+  | Vận hành | Env, CORS, JWT, logger mặc định; /api/health là liveness. |
+endlegend
+caption Assignment2 @ 0b427b1 · 15/11/2026
+@enduml
