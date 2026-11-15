@@ -24,3 +24,7 @@ coverage/
 Thumbs.db
 .idea/
 *.tsbuildinfo
+
+# Tài liệu ôn thi vấn đáp & thuyết trình cá nhân (TV6 Trần Ân - Không đẩy lên Git)
+tai-lieu-van-dap-tv6/
+

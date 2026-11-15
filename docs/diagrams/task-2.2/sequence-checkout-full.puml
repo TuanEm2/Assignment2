@@ -1,0 +1,148 @@
+@startuml sequence-checkout-full
+!theme plain
+autonumber "<b>[00]</b>"
+skinparam BoxPadding 10
+skinparam ParticipantPadding 10
+skinparam defaultFontName "Segoe UI"
+skinparam dpi 200
+
+actor "Khách hàng\n(Customer)" as User
+participant "Giao diện Web\n(Next.js App)" as Web
+participant "Auth & Session\n(Zustand Store)" as Store
+participant "Backend API\n(NestJS)" as API
+database "PostgreSQL\n(Prisma ORM)" as DB
+participant "Mock Payment\nService" as Payment
+
+title **SƠ ĐỒ TUẦN TỰ QUY TRÌNH ĐẶT HÀNG & THANH TOÁN (Task 2.2 - Ân Trần)**
+
+== 1. Xác thực phiên & Chuẩn bị đơn hàng ==
+User -> Web: Chọn món, Size, Topping và số lượng tại /products/:id
+Web -> Store: Thêm dòng món vào Giỏ hàng (Cart Store)
+User -> Web: Bấm "Thanh toán" tại /cart
+Web -> Store: Kiểm tra accessToken trong auth-store
+alt Người dùng chưa đăng nhập
+    Web --> User: Điều hướng sang trang /login?redirect=/checkout
+    User -> Web: Nhập email & mật khẩu (>= 12 ký tự)
+    Web -> API: POST /api/auth/login { email, password }
+    activate API
+    API -> DB: Tìm User & verify mã băm scrypt
+    activate DB
+    DB --> API: Thông tin người dùng hợp lệ
+    deactivate DB
+    API --> Web: 200 OK { accessToken, user }
+    deactivate API
+    Web -> Store: setAuth(accessToken, user)
+    Web --> User: Chuyển hướng tiếp tới màn hình /checkout
+end
+
+== 2. Điều phối Tạo đơn hàng & Khóa tồn kho nguyên liệu ==
+User -> Web: Chọn phương thức (Ví/Thẻ) & bấm "Xác nhận thanh toán"
+activate Web
+Web -> Web: Sinh Order Idempotency-Key (UUID duy nhất)
+Web -> Web: Chuẩn bị payload { items: [{ productId, sizeId, toppingIds, quantity }] }
+note right of Web: Không gửi giá client lên Server\nđể ngăn chặn gian lận giá
+
+Web -> API: POST /api/orders\nHeaders: [Authorization: Bearer <JWT>, Idempotency-Key: <UUID>]\nBody: { items }
+activate API
+
+API -> API: JwtAuthGuard trích xuất userId từ token
+API -> DB: Prisma.$transaction: Kiểm tra IdempotencyKey(userId, key)
+activate DB
+
+alt Idempotency-Key đã tồn tại
+    DB --> API: Trả về đơn hàng đã lưu trước đó (Chống tạo đơn trùng)
+else Đơn hàng mới
+    API -> DB: Đọc Catalog & tính giá server-side (Product, Size, Topping)
+    API -> DB: Tính định lượng công thức: ProductSizeIngredient + ProductToppingIngredient
+    API -> DB: UPDATE "Ingredient" SET stock = stock - qty WHERE stock >= qty
+    alt Thiếu nguyên liệu trong kho
+        DB --> API: Lỗi InsufficientStock
+        API --> Web: 400 Bad Request { message: "Không đủ nguyên liệu..." }
+        Web --> User: Báo lỗi hết món, giữ nguyên giỏ hàng để khách chỉnh
+    else Giữ kho thành công
+        API -> DB: INSERT INTO "Order" (status: PENDING, total)
+        API -> DB: INSERT INTO "OrderItem" (snapshot tên món, size, topping, đơn giá)
+        API -> DB: INSERT INTO "OrderIngredient" (ghi nhận lượng nguyên liệu đã giữ)
+        DB --> API: Tạo đơn thành công { id, total, status: PENDING }
+    end
+end
+deactivate DB
+
+API --> Web: 201 Created { id: orderId, total, status: 'PENDING' }
+deactivate API
+
+== 3. Xử lý Thanh toán mô phỏng (Payment Orchestration & Retry) ==
+Web -> Web: Sinh Payment Idempotency-Key riêng
+Web -> API: POST /api/payments/mock\nHeaders: [Authorization: Bearer <JWT>]\nBody: { orderId, method, idempotencyKey }
+activate API
+
+API -> DB: Kiểm tra quyền sở hữu đơn (order.userId == currentUserId)
+activate DB
+DB --> API: Đơn hợp lệ, thuộc chính chủ
+deactivate DB
+
+API -> Payment: Gửi yêu cầu trừ tiền mô phỏng (Mock Wallet / Card)
+activate Payment
+
+alt Thanh toán thất bại (Mô phỏng lỗi thẻ/ví)
+    Payment --> API: Kết quả FAILURE
+    API -> DB: Prisma.$transaction:
+    activate DB
+    API -> DB: INSERT INTO "PaymentAttempt" (outcome: FAILURE, key)
+    API -> DB: UPDATE "Order" SET status = 'PAYMENT_FAILED'
+    deactivate DB
+    API --> Web: 400 Bad Request { status: 'PAYMENT_FAILED' }
+    Web --> User: Báo lỗi thanh toán, hiển thị nút "Thử thanh toán lại"
+    
+    User -> Web: Bấm "Thử thanh toán lại"
+    Web -> Web: Tạo Payment Idempotency-Key MỚI
+    Web -> API: POST /api/payments/mock (với key mới)
+end
+
+Payment --> API: Kết quả SUCCESS
+deactivate Payment
+
+API -> DB: Prisma.$transaction:
+activate DB
+API -> DB: INSERT INTO "Payment" (orderId, method, amount)
+API -> DB: INSERT INTO "PaymentAttempt" (outcome: SUCCESS)
+API -> DB: UPDATE "Order" SET status = 'PAID'
+deactivate DB
+
+API --> Web: 200 OK { status: 'PAID', paymentId }
+deactivate API
+
+Web -> Store: clearCart() (Xóa giỏ hàng sau khi thanh toán thành công)
+Web --> User: Hiển thị màn hình "Thanh toán thành công" kèm mã đơn hàng
+
+== 4. Xem Lịch sử & Chi tiết đơn hàng (Owner-scoped & Snapshot) ==
+User -> Web: Bấm "Lịch sử đơn hàng" (/orders)
+Web -> API: GET /api/orders/me?limit=20\nHeaders: [Authorization: Bearer <JWT>]
+activate API
+API -> DB: SELECT * FROM "Order" WHERE userId = currentUserId ORDER BY createdAt DESC
+activate DB
+DB --> API: Danh sách đơn hàng thuộc sở hữu khách hàng
+deactivate DB
+API --> Web: 200 OK { items: [...] } (Kèm Header X-Next-Cursor phân trang)
+deactivate API
+Web --> User: Hiển thị danh sách đơn kèm huy hiệu "ĐÃ THANH TOÁN"
+
+User -> Web: Bấm vào thẻ đơn để xem chi tiết (/orders/:id)
+Web -> API: GET /api/orders/:id\nHeaders: [Authorization: Bearer <JWT>]
+activate API
+API -> DB: SELECT * FROM "Order" WHERE id = :id AND userId = currentUserId
+activate DB
+alt Đơn không tồn tại HOẶC thuộc sở hữu người khác
+    DB --> API: Không tìm thấy bản ghi
+    API --> Web: 404 Not Found (Bảo vệ đa khách thuê Multi-tenant)
+    Web --> User: Báo lỗi không tìm thấy đơn hoặc bạn không có quyền truy cập
+else Đơn hợp lệ
+    DB --> API: Dữ liệu đơn, OrderItems snapshot và Payment record
+    deactivate DB
+    API --> Web: 200 OK { id, status, items, payment }
+    deactivate API
+    Web --> User: Render bảng chi tiết món snapshot và thông tin thanh toán thật
+end
+deactivate Web
+
+@enduml
