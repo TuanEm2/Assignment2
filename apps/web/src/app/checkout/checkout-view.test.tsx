@@ -6,6 +6,9 @@ import { useCartStore } from '@/stores/cart-store';
 import { CheckoutScreen } from './checkout-screen';
 import { CheckoutView } from './checkout-view';
 
+const { router } = vi.hoisted(() => ({ router: { replace: vi.fn() } }));
+vi.mock('next/navigation', () => ({ useRouter: () => router }));
+
 const item = {
   id: 'americano-s',
   productId: 'americano',

@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import { useClientReady } from '@/lib/client-ready';
 import { useAuthStore } from '@/stores/auth-store';
 import { useCartStore } from '@/stores/cart-store';
@@ -39,8 +40,12 @@ function readSavedAttempt(): SavedPayosAttempt | null {
 }
 
 export default function PayosCheckoutPage() {
+  const router = useRouter();
   const ready = useClientReady();
   const token = useAuthStore(s => s.token);
+  useEffect(() => {
+    if (ready && !token) router.replace('/login?redirect=/checkout/payos');
+  }, [ready, token, router]);
   const items = useCartStore(s => s.items);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');

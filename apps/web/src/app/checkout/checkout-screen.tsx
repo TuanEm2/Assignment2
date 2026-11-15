@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useEffect, useRef, useState } from 'react';
 import { useClientReady } from '@/lib/client-ready';
 import { useCheckoutOrchestrator } from '@/lib/checkout/use-checkout-orchestrator';
 import { selectIsAuthenticated, useAuthStore } from '@/stores/auth-store';
@@ -9,8 +10,12 @@ import { selectCartSubtotal, useCartStore } from '@/stores/cart-store';
 import { CheckoutView, type PaymentMethod, type PaymentOutcome } from './checkout-view';
 
 export function CheckoutScreen() {
+  const router = useRouter();
   const ready = useClientReady();
   const signedIn = useAuthStore(selectIsAuthenticated);
+  useEffect(() => {
+    if (ready && !signedIn) router.replace('/login?redirect=/checkout');
+  }, [ready, signedIn, router]);
   const items = useCartStore((state) => state.items);
   const subtotal = useCartStore(selectCartSubtotal);
 
