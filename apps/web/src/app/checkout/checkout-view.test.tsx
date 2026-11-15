@@ -43,13 +43,13 @@ describe('Checkout UI', () => {
     await user.click(screen.getByRole('radio', { name: 'Thẻ mô phỏng' }));
     await user.click(screen.getByRole('button', { name: 'Xác nhận thanh toán' }));
 
-    expect(onPay).toHaveBeenCalledExactlyOnceWith('MOCK_CARD');
+    expect(onPay).toHaveBeenCalledExactlyOnceWith('MOCK_CARD', 'SUCCESS');
   });
 
-  it('cho chọn kết quả thất bại khi bật chế độ kiểm thử mô phỏng', async () => {
+  it('cho chọn kết quả thất bại trong checkout mock', async () => {
     const user = userEvent.setup();
     const onPay = vi.fn();
-    render(<CheckoutView items={[item]} subtotal={40000} state={{ phase: 'review' }} onPay={onPay} allowTestOutcomes />);
+    render(<CheckoutView items={[item]} subtotal={40000} state={{ phase: 'review' }} onPay={onPay} />);
     await user.click(screen.getByRole('radio', { name: 'Thất bại' }));
     await user.click(screen.getByRole('button', { name: 'Xác nhận thanh toán' }));
     expect(onPay).toHaveBeenCalledExactlyOnceWith('MOCK_WALLET', 'FAILURE');
@@ -60,7 +60,15 @@ describe('Checkout UI', () => {
 
     expect(screen.getByRole('button', { name: /đang xử lý/i })).toBeDisabled();
     expect(screen.getByRole('radio', { name: 'Ví điện tử mô phỏng' })).toBeDisabled();
+    expect(screen.getByRole('radio', { name: 'Thất bại' })).toBeDisabled();
     expect(screen.getByText(/tổng tiền đơn 45\.000/i)).toBeInTheDocument();
+  });
+
+  it('ẩn kết quả mô phỏng khi chuyển sang PayOS', () => {
+    vi.stubEnv('NEXT_PUBLIC_PAYOS_ENABLED', 'true');
+    render(<CheckoutView items={[item]} subtotal={40000} state={{ phase: 'review' }} onPay={vi.fn()} />);
+    expect(screen.queryByRole('radio')).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /tiếp tục tới payos/i })).toHaveAttribute('href', '/checkout/payos');
   });
 
   it('cho thử lại sau thất bại đã xác định và vẫn hiển thị món', async () => {
@@ -71,7 +79,7 @@ describe('Checkout UI', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(/thanh toán thất bại/i);
     expect(screen.getByText(/americano · size s/i)).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Thử lại' }));
-    expect(onPay).toHaveBeenCalledExactlyOnceWith('MOCK_WALLET');
+    expect(onPay).toHaveBeenCalledExactlyOnceWith('MOCK_WALLET', 'SUCCESS');
   });
 
   it('chỉ cho kiểm tra trạng thái khi chưa biết kết quả', async () => {

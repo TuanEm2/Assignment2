@@ -281,6 +281,8 @@ export function OrderDetailContent({
             <RetryPayment orderId={order.id} token={token} onPaid={() => {
               setLoading(true);
               setAttempt((a) => a + 1);
+            }} onFailed={() => {
+              setOrder((current) => current ? { ...current, status: 'PAYMENT_FAILED' } : current);
             }} />
           )}
 

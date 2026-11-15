@@ -21,9 +21,9 @@ Release flow:
 5. Create a Render image-backed Web service using `ghcr.io/tuanem2/assignment2-web`. The web image embeds `NEXT_PUBLIC_API_URL` at build time; the workflow builds with your public HTTPS API URL. Web runs on `PORT=3000`.
 6. Enable GHCR package visibility for Render to pull, or register GHCR registry credentials on both Render services. The `GITHUB_TOKEN` used to push an image from Actions does not grant Render pull access by itself.
 7. Disable Render's independent auto-deploy for these image-backed services (release is controlled by the GitHub CD workflow).
-8. On the initial production database, run migrations through the API service's Pre-Deploy Command; seed the sample catalog **once**, deliberately, on production if your demo requires it. **Never** run automatic destructive reset/seed after each deploy. Keep `NEXT_PUBLIC_MOCK_PAYMENT_TEST_CONTROLS=false`.
+8. On the initial production database, run migrations through the API service's Pre-Deploy Command; seed the sample catalog **once**, deliberately, on production if your demo requires it. **Never** run automatic destructive reset/seed after each deploy. With `PAYMENT_MODE=mock` and `NEXT_PUBLIC_PAYOS_ENABLED=false`, checkout and unpaid orders expose the simulated success/failure selector.
 
-**Important:** Production uses mock payment only as specified for the assignment, not real money. The success/failure selector UI must stay disabled on publicly reachable production.
+Production uses mock payment for assignment demonstrations, without collecting real money. In mock mode customers can choose the simulated outcome. When using PayOS, the selector is hidden and outcomes come from provider verification.
 
 ## GitHub repository configuration
 

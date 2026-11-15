@@ -71,7 +71,6 @@ export function CheckoutScreen() {
             onPay={onPay}
             onCheckStatus={onCheckStatus}
             checkingStatus={checkingStatus}
-            allowTestOutcomes={process.env.NEXT_PUBLIC_MOCK_PAYMENT_TEST_CONTROLS === 'true'}
           />
         )}
       </div>

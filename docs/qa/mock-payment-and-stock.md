@@ -10,15 +10,21 @@
 
 ## Mock payment outcome selector
 
-To display **Thành công / Thất bại** controls in checkout for local demonstrations, set
-`NEXT_PUBLIC_MOCK_PAYMENT_TEST_CONTROLS=true` in the root `.env` and rebuild
-the web image with `docker compose up -d --build --no-deps web`.
-Default is `false`, so a normal website does not expose this test-only control.
+With API `PAYMENT_MODE=mock` and Web `NEXT_PUBLIC_PAYOS_ENABLED=false` (the defaults),
+**Thành công / Thất bại** controls are available at checkout and on unpaid orders
+in **Lịch sử đơn hàng** and order details. No extra test-control flag is needed.
+After pulling this change, rebuild the Docker web image:
+`docker compose up -d --build --no-deps web`.
 
-A failed attempt updates an order to `PAYMENT_FAILED` and keeps the cart. Retry retains
-the same order idempotency key but creates a new payment attempt key, so
-`PAYMENT_FAILED -> PAID` works with mock success. Never enable this control
-against real payment processing; production outcome must come from provider verification.
+- Choose **Thất bại** and confirm: the API records a failed attempt, updates the
+  order to `PAYMENT_FAILED`, and keeps the cart.
+- Open **Lịch sử đơn hàng**, choose **Thành công** for that order, and click
+  **Thanh toán lại (mô phỏng)**: the API records a payment against the same
+  order and the history shows **Đã thanh toán** (`PAID`).
+- Each completed failure allows a fresh payment key on retry. If the result is
+  unknown, check status before retrying; the UI does not assume payment succeeded.
+- Outcome choices are hidden in PayOS mode. The mock API is available only when
+  `PAYMENT_MODE=mock`; real payment outcomes still come from provider verification.
 
 ## Ingredient-based availability
 

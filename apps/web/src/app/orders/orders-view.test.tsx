@@ -1,4 +1,5 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useAuthStore } from '@/stores/auth-store';
 import { OrdersView, type OrderSummary } from './orders-view';
@@ -157,5 +158,54 @@ describe('OrdersView (Component Test TV6)', () => {
       expect(screen.getByText(/mã đơn: #page2-02/i)).toBeInTheDocument();
       expect(screen.queryByRole('button', { name: /xem các đơn cũ hơn/i })).not.toBeInTheDocument();
     });
+  });
+
+  it.each(['PENDING', 'PAYMENT_FAILED'] as const)('cho chọn thất bại rồi thành công trên cùng đơn %s trong lịch sử', async (initialStatus) => {
+    const user = userEvent.setup();
+    useAuthStore.getState().setAuth('mock-token', { id: 'u-1', email: 'customer@brewlite.vn' });
+    let savedStatus: OrderSummary['status'] = initialStatus;
+    const loader = vi.fn(async () => [{
+      id: 'order-retry', total: 50000, status: savedStatus, createdAt: '2026-11-13T10:00:00Z',
+    }]);
+    const fetchMock = vi.fn(async (_url: string, options: RequestInit) => {
+      const { outcome } = JSON.parse(String(options.body));
+      savedStatus = outcome === 'SUCCESS' ? 'PAID' : 'PAYMENT_FAILED';
+      return Response.json({ success: outcome === 'SUCCESS', status: savedStatus });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    render(<OrdersView loader={loader} />);
+    const card = within(await screen.findByRole('article', { name: 'Đơn hàng order-retry' }));
+
+    await user.click(card.getByRole('radio', { name: 'Thất bại' }));
+    await user.click(card.getByRole('button', { name: 'Thanh toán lại (mô phỏng)' }));
+    expect(await card.findByText('Thanh toán thất bại')).toBeInTheDocument();
+    expect(card.queryByText('Đã thanh toán')).not.toBeInTheDocument();
+    await user.click(card.getByRole('radio', { name: 'Thành công' }));
+    await user.click(card.getByRole('button', { name: 'Thanh toán lại (mô phỏng)' }));
+    expect(await card.findByText('Đã thanh toán')).toBeInTheDocument();
+    expect(card.queryByRole('button', { name: 'Thanh toán lại (mô phỏng)' })).not.toBeInTheDocument();
+    const attempts = fetchMock.mock.calls.map(([, options]) => JSON.parse(String(options.body)));
+    expect(attempts).toEqual([
+      expect.objectContaining({ orderId: 'order-retry', outcome: 'FAILURE' }),
+      expect.objectContaining({ orderId: 'order-retry', outcome: 'SUCCESS' }),
+    ]);
+    expect(attempts[0].idempotencyKey).not.toBe(attempts[1].idempotencyKey);
+  });
+
+  it('mỗi đơn có lựa chọn riêng, không cho thanh toán lại đơn đã trả hoặc đã hủy', async () => {
+    const user = userEvent.setup();
+    useAuthStore.getState().setAuth('mock-token', { id: 'u-1', email: 'customer@brewlite.vn' });
+    const loader = vi.fn(async () => ['PENDING', 'PAYMENT_FAILED', 'PAID', 'CANCELLED'].map((status) => ({
+      id: status, status: status as OrderSummary['status'], total: 50000, createdAt: '2026-11-13T10:00:00Z',
+    })));
+    render(<OrdersView loader={loader} />);
+    const pending = within(await screen.findByRole('article', { name: 'Đơn hàng PENDING' }));
+    const failed = within(screen.getByRole('article', { name: 'Đơn hàng PAYMENT_FAILED' }));
+    await user.click(pending.getByRole('radio', { name: 'Thất bại' }));
+    expect(pending.getByRole('radio', { name: 'Thất bại' })).toBeChecked();
+    expect(failed.getByRole('radio', { name: 'Thành công' })).toBeChecked();
+    for (const status of ['PAID', 'CANCELLED']) {
+      expect(within(screen.getByRole('article', { name: `Đơn hàng ${status}` })).queryByRole('radio')).not.toBeInTheDocument();
+    }
   });
 });

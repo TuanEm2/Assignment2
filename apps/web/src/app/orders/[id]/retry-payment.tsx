@@ -2,8 +2,9 @@
 
 import { useRef, useState } from 'react';
 import { useAuthStore } from '@/stores/auth-store';
+import { MockPaymentOutcomeSelector, type PaymentOutcome } from '@/components/mock-payment-outcome';
 
-type Phase = 'idle' | 'processing' | 'failed' | 'unknown';
+type Phase = 'idle' | 'processing' | 'failed' | 'unknown' | 'paid';
 
 function apiBase(): string {
   const configured = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000');
@@ -20,13 +21,15 @@ function newPaymentKey(): string {
  * Mock mode is only a simulation. A real PayOS payment is acknowledged
  * exclusively after the backend validates the signed provider webhook.
  */
-export function RetryPayment({ orderId, token, onPaid }: {
+export function RetryPayment({ orderId, token, onPaid, onFailed }: {
   orderId: string;
   token: string;
   onPaid: () => void;
+  onFailed?: () => void;
 }) {
   const [phase, setPhase] = useState<Phase>('idle');
   const [message, setMessage] = useState('');
+  const [outcome, setOutcome] = useState<PaymentOutcome>('SUCCESS');
   const activeKey = useRef<string | null>(null);
   const payosEnabled = process.env.NEXT_PUBLIC_PAYOS_ENABLED === 'true';
 
@@ -49,6 +52,7 @@ export function RetryPayment({ orderId, token, onPaid }: {
       }
       if (result.success) {
         activeKey.current = null;
+        setPhase('paid');
         onPaid();
         return;
       }
@@ -60,6 +64,7 @@ export function RetryPayment({ orderId, token, onPaid }: {
       activeKey.current = null;
       setPhase('failed');
       setMessage('Đơn chưa thanh toán. Có thể thử thanh toán lại.');
+      if (result.status === 'PAYMENT_FAILED') onFailed?.();
     } catch (cause) {
       setPhase('unknown');
       setMessage(cause instanceof Error ? cause.message : 'Chưa kiểm tra được trạng thái.');
@@ -67,7 +72,7 @@ export function RetryPayment({ orderId, token, onPaid }: {
   }
 
   async function payAgain() {
-    if (phase === 'processing' || phase === 'unknown') return;
+    if (phase === 'processing' || phase === 'unknown' || phase === 'paid') return;
     setPhase('processing');
     setMessage('');
     try {
@@ -104,7 +109,7 @@ export function RetryPayment({ orderId, token, onPaid }: {
         body: JSON.stringify({
           orderId,
           method: 'MOCK_WALLET',
-          outcome: 'SUCCESS',
+          outcome,
           idempotencyKey: activeKey.current,
         }),
       });
@@ -123,11 +128,13 @@ export function RetryPayment({ orderId, token, onPaid }: {
           typeof data.success !== 'boolean') throw new Error('Phản hồi thanh toán không hợp lệ.');
       if (data.success) {
         activeKey.current = null;
+        setPhase('paid');
         onPaid();
       } else {
         activeKey.current = null; // Completed FAILURE -> next attempt gets a fresh key.
         setPhase('failed');
         setMessage('Thanh toán mô phỏng thất bại. Có thể thử lại.');
+        onFailed?.();
       }
     } catch (cause) {
       setPhase('unknown');
@@ -139,14 +146,18 @@ export function RetryPayment({ orderId, token, onPaid }: {
     <section aria-label="Thanh toán lại đơn hàng" className="mt-5 rounded-lg border border-amber-200 bg-amber-50 p-4">
       <h2 className="font-semibold text-amber-950">Đơn chưa thanh toán</h2>
       <p className="mt-1 text-sm text-amber-900">Thanh toán lại trên cùng mã đơn. Không tạo đơn mới.</p>
+      {!payosEnabled && (
+        <MockPaymentOutcomeSelector value={outcome} onChange={setOutcome}
+          disabled={phase === 'processing' || phase === 'unknown' || phase === 'paid'} />
+      )}
       {message && <p role="alert" className="mt-2 text-sm text-amber-950">{message}</p>}
       <div className="mt-3 flex flex-wrap gap-2">
         <button type="button" onClick={() => void payAgain()}
-          disabled={phase === 'processing' || phase === 'unknown'}
+          disabled={phase === 'processing' || phase === 'unknown' || phase === 'paid'}
           className="rounded-md bg-amber-900 px-4 py-2 font-semibold text-white disabled:opacity-50">
           {phase === 'processing' ? 'Đang xử lý…' : payosEnabled ? 'Tiếp tục thanh toán PayOS' : 'Thanh toán lại (mô phỏng)'}
         </button>
-        <button type="button" onClick={() => void checkStatus()} disabled={phase === 'processing'}
+        <button type="button" onClick={() => void checkStatus()} disabled={phase === 'processing' || phase === 'paid'}
           className="rounded-md border border-amber-900 px-4 py-2 font-semibold text-amber-900 disabled:opacity-50">
           Kiểm tra trạng thái
         </button>
