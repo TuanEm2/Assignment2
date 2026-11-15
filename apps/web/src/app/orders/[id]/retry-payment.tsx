@@ -6,9 +6,9 @@ import { useAuthStore } from '@/stores/auth-store';
 type Phase = 'idle' | 'processing' | 'failed' | 'unknown';
 
 function apiBase(): string {
-  const configured = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000').replace(/\\/+$/, '');
-  return configured.endsWith('/api') ? configured : `${configured}/api`;
-}
+  const configured = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000');
+  const base = configured.endsWith('/') ? configured.slice(0, -1) : configured;
+  return base.endsWith('/api') ? base : `${base}/api`;
 
 function newPaymentKey(): string {
   return `retry-${crypto.randomUUID()}`;
