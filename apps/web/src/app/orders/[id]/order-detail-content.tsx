@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { useClientReady } from '@/lib/client-ready';
 import { selectIsAuthenticated, useAuthStore } from '@/stores/auth-store';
 import '../orders.css';
+import { RetryPayment } from './retry-payment';
 
 export type OrderStatus =
   | 'PENDING'
@@ -274,6 +275,13 @@ export function OrderDetailContent({
                 Thời gian: {new Date(order.payment.createdAt).toLocaleString('vi-VN')}
               </p>
             </div>
+          )}
+
+          {(order.status === "PENDING" || order.status === "PAYMENT_FAILED") && token && (
+            <RetryPayment orderId={order.id} token={token} onPaid={() => {
+              setLoading(true);
+              setAttempt((a) => a + 1);
+            }} />
           )}
 
           <div className="border-t border-slate-100 pt-4 mt-3 flex justify-between items-center">
