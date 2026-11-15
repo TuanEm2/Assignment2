@@ -22,6 +22,12 @@ export class PayosController {
     return this.payos.checkout(user.id, parseOrderUuid(body.orderId, 'orderId'));
   }
 
+  @Post('cancel/:orderId')
+  @UseGuards(JwtAuthGuard)
+  cancel(@CurrentUser() user: PublicUser, @Param('orderId') orderId: string) {
+    return this.payos.cancel(user.id, parseOrderUuid(orderId, 'orderId'));
+  }
+
   @Get('status/:orderId')
   @UseGuards(JwtAuthGuard)
   status(@CurrentUser() user: PublicUser, @Param('orderId') orderId: string) {
