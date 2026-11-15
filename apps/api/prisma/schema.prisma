@@ -67,6 +67,7 @@ enum OrderStatus {
 enum PaymentMethod {
   MOCK_WALLET
   MOCK_CARD
+  PAYOS_QR
 }
 
 enum PaymentOutcome {
@@ -144,6 +145,7 @@ model Order {
   user             User              @relation(fields: [userId], references: [id], onDelete: Restrict)
   items            OrderItem[]
   payment          Payment?
+  payosCheckout    PayosCheckout?
   attempts         PaymentAttempt[]
   ingredientUsages OrderIngredient[]
 
@@ -201,4 +203,18 @@ model PaymentAttempt {
   order          Order          @relation(fields: [orderId], references: [id], onDelete: Restrict)
 
   @@unique([orderId, idempotencyKey])
+}
+
+
+// Exactly one real PayOS link per BrewLite order; provider code is a positive integer.
+model PayosCheckout {
+  orderCode     Int      @id
+  orderId       String   @unique @db.Uuid
+  amount        Int
+  checkoutUrl   String?
+  paymentLinkId String?
+  status        String   @default("CREATING")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  order         Order    @relation(fields: [orderId], references: [id], onDelete: Restrict)
 }

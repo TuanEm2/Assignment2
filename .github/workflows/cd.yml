@@ -117,6 +117,7 @@ jobs:
             NEXT_PUBLIC_MENU_DATA_SOURCE=api
             NEXT_PUBLIC_PRODUCT_DETAIL_ENABLED=true
             NEXT_PUBLIC_MOCK_PAYMENT_TEST_CONTROLS=false
+            NEXT_PUBLIC_PAYOS_ENABLED=${{ vars.PAYOS_FRONTEND_ENABLED }}
 
   deploy:
     name: Protected Render deploy, migration and live smoke
