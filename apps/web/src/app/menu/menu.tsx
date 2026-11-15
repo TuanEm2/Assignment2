@@ -2,6 +2,8 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { useClientReady } from '@/lib/client-ready';
+import { selectIsAuthenticated, useAuthStore } from '@/stores/auth-store';
 import './menu.css';
 import { getProductsUrl } from '../../lib/products/url';
 
@@ -296,6 +298,10 @@ function ProductCard({
 }
 
 export function Menu({ loader = getProducts }: { loader?: Loader }) {
+  const clientReady = useClientReady();
+  const signedIn = useAuthStore(selectIsAuthenticated);
+  const currentUser = useAuthStore((state) => state.user);
+  const logout = useAuthStore((state) => state.logout);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -365,7 +371,21 @@ export function Menu({ loader = getProducts }: { loader?: Loader }) {
           BrewLite<span>®</span>
         </a>
 
-        <a href="#tv4-list">Khám phá menu ↗</a>
+        <nav aria-label="Tài khoản và giỏ hàng" className="flex flex-wrap items-center justify-end gap-3 text-sm font-semibold">
+          <Link href="/cart">Giỏ hàng</Link>
+          {clientReady && signedIn ? (
+            <>
+              <Link href="/orders">Lịch sử đơn</Link>
+              <span className="max-w-40 truncate text-xs" title={currentUser?.email}>{currentUser?.name || currentUser?.email}</span>
+              <button type="button" onClick={logout} className="rounded-md border border-emerald-900 px-3 py-2">Đăng xuất</button>
+            </>
+          ) : (
+            <>
+              <Link href="/login" className="rounded-md border border-emerald-900 px-3 py-2">Đăng nhập</Link>
+              <Link href="/register" className="rounded-md bg-emerald-900 px-3 py-2 text-white">Đăng ký</Link>
+            </>
+          )}
+        </nav>
       </header>
 
       <main className="tv4-main">

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { getProductDetail, getProductAvailability, type ProductDetail as Product } from '@/lib/products/detail';
 import { useCartStore } from '@/stores/cart-store';
+import { makeCartLineId } from '@/lib/cart/calculations';
 import './product-detail.css';
 
 type Loader = (id: string, signal: AbortSignal) => Promise<Product>;
@@ -24,6 +25,7 @@ export function ProductDetail({ productId, loader = getProductDetail }: { produc
     error: boolean;
   }>({ key: '', cups: null, error: false });
   const addItem = useCartStore(s => s.addItem);
+  const cartItems = useCartStore(s => s.items);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -66,11 +68,14 @@ export function ProductDetail({ productId, loader = getProductDetail }: { produc
   const toppings = product?.toppings.filter(t => toppingIds.includes(t.id)) ?? [];
   const count = Number(quantity);
   const valid = Number.isSafeInteger(count) && count >= 1 && count <= 99;
-  const exceedsStock = availableCups !== null && count > availableCups;
+  const selectedLineId = product ? makeCartLineId(product.id, sizeId || null, toppingIds) : '';
+  const alreadyInCart = cartItems.find(item => item.id === selectedLineId)?.quantity ?? 0;
+  const exceedsStock = availableCups !== null && count + alreadyInCart > availableCups;
+  const stockUnverified = Boolean(product?.sizes.length && (stockLoading || stockError || availableCups === null));
   const unitPrice = (product?.price ?? 0) + (size?.price ?? 0) + toppings.reduce((n, t) => n + t.price, 0);
 
   function addSelectedProduct() {
-    if (!product || !valid || exceedsStock || (product.sizes.length > 0 && !size)) return;
+    if (!product || !valid || exceedsStock || stockUnverified || (product.sizes.length > 0 && !size)) return;
     addItem({ productId: product.id, productName: product.name, basePrice: product.price,
       imageUrl: product.imageUrl, size, toppings, quantity: count });
     setNotice(`Đã thêm ${count} ${product.name} vào giỏ.`);
@@ -100,12 +105,12 @@ export function ProductDetail({ productId, loader = getProductDetail }: { produc
             stockError ? 'Chưa thể kiểm tra tồn kho. Hệ thống sẽ kiểm tra khi đặt đơn.' :
             availableCups === null ? 'Chọn size để kiểm tra số ly còn lại.' :
             availableCups === 0 ? 'Hết nguyên liệu cho lựa chọn này.' :
-            `Ước tính còn ${availableCups} ly với size và topping đã chọn.`}
+            `Ước tính còn ${availableCups} ly với size và topping đã chọn (${Math.max(0, availableCups - alreadyInCart)} ly có thể thêm).` }
         </p>
-        {exceedsStock && <p role="alert">Số lượng vượt quá nguyên liệu có thể pha hiện tại.</p>}
+        {exceedsStock && <p role="alert">Số lượng vượt quá nguyên liệu có thể pha hiện tại, tính cả {alreadyInCart} ly đã trong giỏ.</p>}
         <p className="detail-total">Tạm tính: <output aria-label="Tổng tạm tính">{money(unitPrice * (valid ? count : 0))}</output></p>
         <p>Giá và tồn kho sẽ được kiểm tra lại khi đặt đơn.</p>
-        <button disabled={!valid || exceedsStock || (product.sizes.length > 0 && !size)} onClick={addSelectedProduct}>Thêm vào giỏ</button>
+        <button disabled={!valid || exceedsStock || stockUnverified || (product.sizes.length > 0 && !size)} onClick={addSelectedProduct}>Thêm vào giỏ</button>
         {notice && <p role="status" aria-label="Thông báo giỏ hàng">{notice}</p>}
       </section>
     </article>}
