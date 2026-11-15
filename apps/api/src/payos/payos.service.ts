@@ -82,7 +82,7 @@ export class PayosService {
     });
     if (!order) throw new NotFoundException('Order not found');
     if (order.status === OrderStatus.CANCELLED) return { orderId, status: 'CANCELLED' };
-    if (order.payment || ![OrderStatus.PENDING, OrderStatus.PAYMENT_FAILED].includes(order.status)) {
+    if (order.payment || !(order.status === OrderStatus.PENDING || order.status === OrderStatus.PAYMENT_FAILED)) {
       throw new ConflictException('Paid or processing orders cannot be cancelled here');
     }
     const attempt = await this.prisma.payosCheckout.findFirst({
@@ -139,7 +139,7 @@ export class PayosService {
       select: { status: true, payment: { select: { id: true } } },
     });
     if (!ownedOrder) throw new NotFoundException('Order not found');
-    if (ownedOrder.payment || ![OrderStatus.PENDING, OrderStatus.PAYMENT_FAILED].includes(ownedOrder.status)) {
+    if (ownedOrder.payment || !(ownedOrder.status === OrderStatus.PENDING || ownedOrder.status === OrderStatus.PAYMENT_FAILED)) {
       throw new ConflictException('This order is no longer payable');
     }
     let closedLink = false;
