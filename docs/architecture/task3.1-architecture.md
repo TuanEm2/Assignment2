@@ -4,7 +4,7 @@
 
 BrewLite là ứng dụng đặt đồ uống: khách xem sản phẩm, chọn size/topping, quản lý giỏ hàng, đăng nhập, đặt đơn, thanh toán và xem lịch sử đơn. Nhóm mô tả hệ thống bằng **kiến trúc phân lớp**, kết hợp góc nhìn container để xác định ranh giới giữa trình duyệt, frontend, API và cơ sở dữ liệu.
 
-Tài liệu đối chiếu mã nguồn Assignment 2 tại commit `0b427b1e54b249addfd0229c406fd5ad62cb0ef2`, ngày 15/11/2026. “Đang có” nghĩa là có bằng chứng trong source; trạng thái dịch vụ production được ghi riêng trong [Task 3.2](task3.2-deployment.md).
+Tài liệu đối chiếu mã nguồn Assignment 2 tại commit `0b427b1e54b249addfd0229c406fd5ad62cb0ef2`, ngày 15/11/2026. “Đang có” nghĩa là có bằng chứng trong source; trạng thái dịch vụ production được ghi riêng trong [Task 3.2](../diagrams/task3.2/task3.2-deployment.md).
 
 ![Kiến trúc phân lớp BrewLite](layered-architecture.svg)
 

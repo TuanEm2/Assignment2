@@ -1,6 +1,6 @@
 # BrewLite — Task 3.1 và Task 3.2
 
-Hai task trong đề là kiến trúc/ADR và deployment diagram. Thiết lập repo/Docker là một phần căn cứ kỹ thuật; không thay thế hai tài liệu này.
+Task 3.1 trình bày phương pháp và quyết định kiến trúc; Task 3.2 mô tả deployment và truy vết các thành phần về kiến trúc/code.
 
 ## Task 3.1 — Phương pháp và quyết định kiến trúc
 
@@ -16,19 +16,20 @@ Hai task trong đề là kiến trúc/ADR và deployment diagram. Thiết lập 
 
 ## Task 3.2 — UML deployment diagram
 
-- [Tài liệu giải thích deployment](task3.2-deployment.md).
-- [Sơ đồ deployment SVG](deployment-production.svg), [nguồn PlantUML](deployment-production.puml).
+- [Tài liệu giải thích deployment](../diagrams/task3.2/task3.2-deployment.md).
+- [Sơ đồ deployment SVG](../diagrams/task3.2/deployment-production.svg), [nguồn PlantUML](../diagrams/task3.2/deployment-production.puml).
+- [Bảng truy vết node deployment về kiến trúc/code](../diagrams/task3.2/deployment-traceability.md).
 
 ## Phạm vi bằng chứng
 
-Đối chiếu source tại commit `0b427b1e54b249addfd0229c406fd5ad62cb0ef2`, ngày 15/11/2026. Theo lựa chọn dùng cấu hình repo, không đọc trạng thái dịch vụ live. Deployment diagram thể hiện mô hình Render/GHCR được cấu hình trong source, chưa phải bằng chứng production đã chạy. Tài liệu ghi rõ các phần còn thiếu như PWA, request logging/readiness đầy đủ và đối chiếu hạ tầng live.
+Kiến trúc được lập từ source tại commit `0b427b1e54b249addfd0229c406fd5ad62cb0ef2`; deployment được đối chiếu lại tại `9715b33d079cf47c5be569bc132c19e0f8dea052`, ngày 16/11/2026. Chủ dự án xác nhận nền tảng Render, **My Workspace**, hai URL Web/API và mã PostgreSQL; kiểm tra HTTP công khai đã thành công. Nguồn build/deploy và kết nối DB nội bộ đang chờ đối chiếu vì kết nối Render hiện tại thuộc workspace khác. Tài liệu có bảng truy vết từng node và phân biệt cấu hình source với bằng chứng production.
 
 ## Chỉnh sửa sơ đồ
 
 Mở file `.puml` trong PlantUML/IDE có extension PlantUML, hoặc chạy:
 
 ```bash
-java -jar plantuml.jar -charset UTF-8 -tsvg docs/architecture/*.puml
+java -jar plantuml.jar -charset UTF-8 -tsvg docs/architecture/*.puml docs/diagrams/task3.2/*.puml
 ```
 
 Commit cả file nguồn `.puml` và ảnh `.svg` tương ứng để người đọc GitHub xem được mà không cần cài công cụ.

@@ -2,13 +2,15 @@
 
 ## 1. Phạm vi và căn cứ
 
-Tài liệu mô tả **cấu hình triển khai trong repository Assignment 2**, theo lựa chọn dùng cấu hình repo của người dùng. Nền tảng đích là Render; nguồn đối chiếu là commit `0b427b1e54b249addfd0229c406fd5ad62cb0ef2`, ngày 15/11/2026.
+Tài liệu mô tả **cấu hình triển khai trong repository Assignment 2**. Nền tảng đích là Render; source được đối chiếu lại tại commit `9715b33d079cf47c5be569bc132c19e0f8dea052`, ngày 16/11/2026.
 
-Đây không phải biên bản kiểm tra dịch vụ live. Domain/service ID/region/gói dịch vụ và trạng thái bật PayOS chưa được xác minh từ Render. Các tên biến `PRODUCTION_WEB_URL`, `PRODUCTION_API_URL` và `DATABASE_URL` trong sơ đồ là cấu hình cần cấp, không phải URL hoặc giá trị bí mật được bịa ra.
+Các URL Web/API production do chủ dự án cung cấp đã được kiểm tra HTTP; xem [bằng chứng production](deployment-evidence.md). Workspace được xác nhận là **My Workspace**. Nguồn build/deploy và kết nối database nội bộ đang chờ đối chiếu; region/gói dịch vụ và trạng thái bật PayOS chưa được xác minh qua Render. `DATABASE_URL` trong sơ đồ chỉ là tên cấu hình, không chứa giá trị bí mật.
 
 ![UML deployment diagram — BrewLite](deployment-production.svg)
 
 File nguồn: [deployment-production.puml](deployment-production.puml). Sơ đồ dùng UML nodes, execution environments, artifacts, database và communication paths; luồng phát hành được tách bằng nét đứt.
+
+Các mã node `DEP-*` được ánh xạ sang thành phần kiến trúc, Dockerfile/workflow và code cụ thể trong [bảng truy vết và kiểm tra tiêu chí nghiệm thu](deployment-traceability.md). Bộ sơ đồ và thuyết minh đặt trong `docs/diagrams/task3.2/`; kiến trúc/ADR đặt trong `docs/architecture/`.
 
 ## 2. Các node và artifact
 
@@ -32,8 +34,8 @@ Mock payment là module trong NestJS, không cần node/container thanh toán b�
 
 | Kết nối | Giao thức / cổng | Ghi chú |
 | --- | --- | --- |
-| Trình duyệt → frontend public origin | HTTPS 443 | `PRODUCTION_WEB_URL`; tải trang và tài nguyên frontend. |
-| Trình duyệt → API public origin | HTTPS 443 | `PRODUCTION_API_URL`, REST `/api/*`, JWT cho endpoint cần xác thực. |
+| Trình duyệt → frontend public origin | HTTPS 443 | `https://assignment2-web.onrender.com`; đã kiểm tra Web/menu HTTP 200. |
+| Trình duyệt → API public origin | HTTPS 443 | `https://assignment2-19nq.onrender.com`, REST `/api/*`, JWT cho endpoint cần xác thực; health/catalog đã trả 200. |
 | Render edge → Next.js | HTTP `PORT`; mặc định image là 3000 | Cổng bên trong dịch vụ, không phải public URL `:3000`. |
 | Render edge → NestJS | HTTP `PORT`; source fallback 4000 | Render cấp `PORT`; ứng dụng đọc biến này. Cần ghi cổng thực tế khi đối chiếu dịch vụ. |
 | API → PostgreSQL | PostgreSQL protocol TCP 5432, nội bộ | Dùng internal `DATABASE_URL`; thông tin TLS/SSL theo cấu hình database thực tế, chưa xác minh live. |
@@ -98,7 +100,7 @@ Sơ đồ và tài liệu chỉ chứa tên biến; không ghi giá trị secret
 
 Theo đề bài, deployment diagram cuối cùng cần phản ánh nền tảng thực tế. Trước khi dùng bản này làm bằng chứng production, nhóm cần đối chiếu: hai service đúng Assignment 2; nguồn deploy thực sự là image hay Git/Dockerfile; domain, region, cổng; internal DB và storage; migration command; health path; quyền pull GHCR; cấu hình log/backup. Nếu service đang build trực tiếp từ Git, phải đổi đường phát hành trên sơ đồ cho đúng thay vì coi GHCR/CD là luồng đã hoạt động.
 
-Phạm vi hiện tại được giới hạn ở repository theo yêu cầu; tài liệu không triển khai, tạo, sửa hay xác nhận trạng thái bất kỳ tài nguyên Render nào.
+Phần kiểm tra source và HTTP công khai đã hoàn tất. Kết nối Render hiện tại không truy cập được **My Workspace** của Assignment 2; nguồn build/deploy và kết nối DB nội bộ đang chờ xác nhận như ghi trong [bằng chứng production](deployment-evidence.md). Điều kiện phản ánh nền tảng thực tế còn cần hoàn tất hai điểm này. Việc rà soát không triển khai, tạo hoặc sửa tài nguyên Render.
 
 ## 9. Nguồn đối chiếu
 

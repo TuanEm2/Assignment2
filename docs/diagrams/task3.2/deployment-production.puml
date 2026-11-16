@@ -11,36 +11,36 @@ skinparam nodeBorderColor #587387
 skinparam packageBorderColor #587387
 
 frame "LOCAL · máy phát triển" as Local #F2F6FA {
-  node "Docker Engine / Compose" as Docker <<executionEnvironment>> {
+  node "[DEP-LOCAL] Docker Engine / Compose" as Docker <<executionEnvironment>> {
     artifact "Web :3000 · API :4000\nPostgreSQL :5432 (host :5433)\npostgres_data: volume bền vững local\n.env từ .env.example" as LocalStack
   }
 }
 
 frame "CI / RELEASE · GitHub" as CICD #F3F7EE {
-  node "TuanEm2/Assignment2\nGitHub Actions runner" as Runner <<executionEnvironment>> {
+  node "[DEP-CI] TuanEm2/Assignment2\nGitHub Actions runner" as Runner <<executionEnvironment>> {
     artifact "ci.yml: lint / test / build\ncd.yml: quality gate → image SHA\n→ deploy API / Web → smoke HTTPS" as Workflow
   }
-  node "GHCR · container registry" as Registry {
+  node "[DEP-REG] GHCR · container registry" as Registry {
     artifact "ghcr.io/tuanem2/\nassignment2-api:<SHA>\nassignment2-web:<SHA>" as Images
   }
   Runner ..> Registry : push images\nHTTPS 443
 }
 
-node "Thiết bị người dùng" as Device {
+node "[DEP-USER] Thiết bị người dùng" as Device {
   node "Trình duyệt desktop / mobile" as Browser <<executionEnvironment>> {
     artifact "UI BrewLite\nPWA: chưa cấu hình" as UI
   }
 }
 
 frame "PRODUCTION · Render · theo cấu hình repo" as Production #EDF5FA {
-  node "Render edge / TLS\nPublic Web / API origins" as Edge <<executionEnvironment>>
-  node "Web Service · frontend" as Web <<executionEnvironment>> {
+  node "[DEP-EDGE] Render edge / TLS\nPublic Web / API origins" as Edge <<executionEnvironment>>
+  node "[DEP-WEB] Web Service · frontend" as Web <<executionEnvironment>> {
     artifact "Next.js / Node.js\nassignment2-web:<SHA>\nPORT: image mặc định 3000" as Next
   }
-  node "Web Service · API" as API <<executionEnvironment>> {
+  node "[DEP-API] Web Service · API" as API <<executionEnvironment>> {
     artifact "NestJS / Node.js\nassignment2-api:<SHA>\nPORT: source fallback 4000\nMock payment trong PaymentsModule" as Nest
   }
-  node "Managed PostgreSQL" as DBService <<executionEnvironment>> {
+  node "[DEP-DB] Managed PostgreSQL" as DBService <<executionEnvironment>> {
     database "BrewLite · TCP 5432\nPersistent database storage" as DB
   }
   Edge --> Web : HTTP :PORT
@@ -65,5 +65,5 @@ legend bottom
   | Bằng chứng | Chưa xác minh domain, region, PORT, plan hoặc trạng thái live |
   | Ký hiệu | Nét liền: runtime; nét đứt: build/deploy; node + artifact: UML |
 endlegend
-caption * Pre-deploy cần cấu hình và gói Render hỗ trợ.\nAssignment2 @ 0b427b1 · 15/11/2026 · nguồn: Compose, Dockerfiles, CI/CD, env example
+caption * Pre-deploy cần cấu hình và gói Render hỗ trợ.\nAssignment2 @ 9715b33 · kiểm tra 16/11/2026 · nguồn: Compose, Dockerfiles, CI/CD, env example
 @enduml
