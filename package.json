@@ -21,6 +21,7 @@
     "test:smoke": "node --experimental-strip-types --test tests/smoke/smoke-test.mjs",
     "test:e2e": "node --test tests/e2e/browser-flow.test.mjs",
     "test:e2e:browser": "node --test tests/e2e/browser-flow.test.mjs",
+    "test:e2e:system": "node --test tests/integration/checkout-e2e-flow.test.mjs",
     "test:inventory": "npm run test -w apps/api -- --runInBand --runTestsByPath src/inventory/inventory.service.spec.ts",
     "test:inventory:postgres": "npm run test:e2e -w apps/api -- --runInBand --runTestsByPath test/inventory-postgres.e2e-spec.ts"
   },
