@@ -14,6 +14,7 @@ on:
         options:
           - release
           - rollback
+          - publish_only
       rollback_sha:
         description: 'Full 40-character Git SHA of the previously working release (rollback only)'
         required: false
