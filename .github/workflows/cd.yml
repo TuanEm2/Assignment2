@@ -57,7 +57,7 @@ jobs:
           version="$GITHUB_SHA"
           if [ "$op" = "rollback" ]; then
             version="$ROLLBACK_SHA"
-          elif [ "$op" != "release" ]; then
+          elif [ "$op" != "release" ] && [ "$op" != "publish_only" ]; then
             echo "::error::Unknown operation"; exit 1
           fi
           if [[ ! "$version" =~ ^[0-9a-f]{40}$ ]]; then
@@ -78,7 +78,7 @@ jobs:
   images:
     name: Build immutable Docker images and push GHCR
     needs: prepare
-    if: needs.prepare.outputs.operation == 'release'
+    if: needs.prepare.outputs.operation != 'rollback'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -122,7 +122,7 @@ jobs:
   deploy:
     name: Protected Render deploy, migration and live smoke
     needs: [quality, prepare, images]
-    if: always() && needs.quality.result == 'success' && needs.prepare.result == 'success' && (needs.images.result == 'success' || needs.images.result == 'skipped')
+    if: ${{ always() && needs.quality.result == 'success' && needs.prepare.result == 'success' && needs.prepare.outputs.operation != 'publish_only' && (needs.images.result == 'success' || needs.images.result == 'skipped') }}
     runs-on: ubuntu-latest
     timeout-minutes: 40
     environment: production
