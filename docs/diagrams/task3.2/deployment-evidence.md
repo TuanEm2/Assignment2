@@ -1,34 +1,47 @@
-# Task 3.2 — Bằng chứng đối chiếu production
+# Task 3.2 — Bằng chứng production ngày 16/11/2026
 
-Ngày kiểm tra: 16/11/2026. Phạm vi: đọc tài liệu/source, gọi HTTP GET công khai; không tạo/sửa tài nguyên, không đặt đơn hoặc giao dịch thanh toán.
+Phạm vi: đọc metadata/log Render trong **My Workspace** đã được chủ dự án xác nhận; đọc source; gọi HTTP GET/OPTIONS công khai. Không tạo/sửa service, env, ACL, database hoặc dữ liệu nghiệp vụ.
 
-## 1. Định danh môi trường được chủ dự án cung cấp
+## 1. Metadata Render đã đọc
 
-| Thành phần | Định danh | Nguồn bằng chứng |
+| Tài nguyên | Metadata quan sát được |
+| --- | --- |
+| Workspace | **My Workspace**, tài khoản có quyền truy cập đúng ba tài nguyên Assignment 2 bên dưới. Không dùng dữ liệu từ Em's workspace. |
+| API | `srv-dbsnuf1srm7s73dsl390`, tên Assignment2, URL <https://assignment2-19nq.onrender.com>, Web Service, runtime Docker, Oregon, plan Free, 1 instance. Repo `https://github.com/TuanEm2/Assignment2`, branch main, root context `.`, Dockerfile `apps/api/Dockerfile`; autoDeploy yes, trigger commit. Health path `/api/health`. |
+| Web | `srv-dbso1gm7bikc73c0h2r0`, tên Assignment2 - web, URL <https://assignment2-web.onrender.com>, Web Service, runtime Docker, Oregon, plan Free, 1 instance. Cùng repo/main, context `.`, Dockerfile `apps/web/Dockerfile`; autoDeploy yes, trigger commit. HTTP health path rỗng. |
+| PostgreSQL | `dpg-dbsmrami0phs73dj58q0-a`, tên brewlite-ass2-db, version 16, Oregon, plan Free, status available; highAvailabilityEnabled false; external IP allow list `0.0.0.0/0`. |
+| Deploy API đã đọc | `dep-dbtatunf3r2c73f9fq7g`, status live, commit `fd9211599033519c7e96c60bf8ff26a4b0325b33`. |
+| Deploy Web đã đọc | `dep-dbtatunf3r2c73f9fqf0`, status live, cùng commit `fd9211599033519c7e96c60bf8ff26a4b0325b33`. |
+
+Render metadata xác nhận **Git/Dockerfile-backed services**. Không có bằng chứng hai service này pull image `assignment2-*:<SHA>` từ GHCR; đường GHCR chỉ có trong workflow CD của repo.
+
+## 2. Log đối chiếu hạ tầng
+
+| Log / thời điểm UTC | Kết quả liên quan sơ đồ |
+| --- | --- |
+| API Prisma datasource, gồm lần `2026-11-16T07:22:30.598772665Z` | Hostname `dpg-dbsmrami0phs73dj58q0-a`, dạng internal hostname của đúng PostgreSQL đã cung cấp. Không lưu connection string/user/password. |
+| Next.js startup, gồm lần `2026-11-16T07:22:28.139730379Z` | `localhost:10000`. |
+| Render phát hiện cổng Web, `2026-11-16T07:27:32.506812776Z` | Port 10000, resource Web. |
+| Render phát hiện cổng API, `2026-11-16T07:27:45.917623975Z` | Port 10000, resource API. |
+
+Đây là bằng chứng port runtime, không dùng cổng fallback của Dockerfile/source để giả định cổng production. Log datasource chứng minh đường internal host; không suy ra SSL mode nội bộ hay mật khẩu từ log.
+
+## 3. HTTP checks ngày 16/11/2026
+
+| Request | Kết quả | Giới hạn |
 | --- | --- | --- |
-| Nền tảng / workspace | Render, **My Workspace** | Chủ dự án xác nhận; không phải `Em's workspace` của kết nối Render hiện có. |
-| API production | <https://assignment2-19nq.onrender.com> | Chủ dự án cung cấp, đã kiểm tra HTTP. |
-| Web production | <https://assignment2-web.onrender.com> | Chủ dự án cung cấp, đã kiểm tra HTTP. |
-| PostgreSQL | `dpg-dbsmrami0phs73dj58q0-a` | Chủ dự án cung cấp; không chứa connection string hoặc mật khẩu. |
+| API `GET /api/health` | HTTP 200; `status=ok`, `service=brewlite-api`. Timestamp phản hồi `2026-11-16T07:21:26.302Z` (14:21 giờ Việt Nam). | Liveness; không kiểm tra DB. |
+| API `GET /api/products` | HTTP 200, JSON array có 4 sản phẩm. | Đường đọc catalog; không thay E2E checkout. |
+| Web `GET /menu` và `GET /` | HTTP 200, HTML có BrewLite và bundle `/_next/`. | Web origin đang phục vụ Next.js. |
+| API `GET /api/orders/me` không JWT | HTTP 401. | Route từ chối truy cập khi chưa xác thực. |
+| API `OPTIONS /api/orders`, Origin là Web production | HTTP 204; allow-origin đúng `https://assignment2-web.onrender.com`. | Không gửi request tạo đơn. |
 
-Kết nối Render hiện có chỉ liệt kê workspace khác, nên không dùng metadata của workspace đó làm bằng chứng cho Assignment 2. Không suy ra region, compute plan, backup policy hoặc image tag từ tên/domain.
+## 4. Phát hiện và cách đưa vào sơ đồ
 
-## 2. Kiểm tra HTTP công khai
+- Giữ luồng thực tế: GitHub main → Render Docker build → Web/API; Docker Hub cấp base images theo Dockerfile.
+- Không vẽ GHCR pull/paid pre-deploy như luồng live hiện tại.
+- Ghi đúng runtime port 10000, HTTPS 443 và DB 5432.
+- PostgreSQL có đường nội bộ **và external access được cho phép**. ACL mọi IPv4 vẫn đòi hỏi credential hợp lệ, không có nghĩa truy cập vô danh. Không gọi DB là private-only.
+- Không đưa secret, API key, password, connection URL có credential, IP nội bộ của client hoặc dữ liệu khách hàng vào bộ tài liệu.
 
-| Request | Kết quả ngày 16/11/2026 | Ý nghĩa và giới hạn |
-| --- | --- | --- |
-| `GET https://assignment2-19nq.onrender.com/api/health` | HTTP 200; `status=ok`, `service=brewlite-api` | Khớp contract liveness trong `apps/api/src/app.service.ts`; không kiểm tra DB. Timestamp phản hồi: `2026-11-16T07:21:26.302Z` (14:21 giờ Việt Nam). |
-| `GET https://assignment2-19nq.onrender.com/api/products` | HTTP 200; JSON array có 4 sản phẩm | Đường đọc catalog hoạt động. Source tương ứng dùng Prisma/PostgreSQL; HTTP không chứng minh hostname/loại connection URL đang cấu hình. |
-| `GET https://assignment2-web.onrender.com/menu` | HTTP 200; HTML có BrewLite và bundle `/_next/` | Next.js frontend đang phục vụ trang menu. |
-| `GET https://assignment2-web.onrender.com/` | HTTP 200; HTML có BrewLite và bundle `/_next/` | Public Web origin hoạt động qua HTTPS. |
-| `GET https://assignment2-19nq.onrender.com/api/orders/me` không có token | HTTP 401 | API từ chối truy cập lịch sử khi chưa xác thực. |
-| `OPTIONS https://assignment2-19nq.onrender.com/api/orders`, Origin là Web production | HTTP 204; `Access-Control-Allow-Origin: https://assignment2-web.onrender.com` | CORS cho phép đúng Web origin đã cung cấp; không gửi request tạo đơn. |
-
-Các request không gửi token hoặc secret. Kết quả này không thay thế E2E checkout, kiểm tra hiệu năng hay kiểm toán cấu hình tài khoản Render.
-
-## 3. Cấu hình còn cần chủ dự án đối chiếu
-
-- Nguồn deploy Web/API: build từ Dockerfile trong GitHub, pull image GHCR hay Node native.
-- `DATABASE_URL` của API có dùng Internal Database URL của PostgreSQL ở mục 1 hay không.
-
-Khi hai thông tin này được xác nhận, sơ đồ cần thể hiện đúng đường build/deploy đang dùng; GHCR chỉ được vẽ là luồng phát hành đang hoạt động nếu có bằng chứng tương ứng. Cổng nội bộ dùng `PORT` do môi trường cấp; không gán fallback của source thành cổng live khi chưa biết giá trị thực.
+Tài liệu tham chiếu nền tảng đã đọc: [PostgreSQL — tạo và kết nối](https://render.com/docs/postgresql-creating-connecting), [deploy lifecycle](https://render.com/docs/deploys), [health checks](https://render.com/docs/health-checks).

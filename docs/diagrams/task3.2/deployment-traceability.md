@@ -1,47 +1,48 @@
-# Task 3.2 — Truy vết deployment về kiến trúc và mã nguồn
+# Task 3.2 — Truy vết và tiêu chí nghiệm thu
 
-Đối chiếu repository tại commit `9715b33d079cf47c5be569bc132c19e0f8dea052`, ngày 16/11/2026. Các mã `DEP-*` tương ứng với nhãn trên [deployment diagram](deployment-production.svg). Bảng này xác minh ranh giới và artifact trong source; chưa thay thế bằng chứng cấu hình của các dịch vụ production.
+Đối chiếu ngày 16/11/2026 với source `fd9211599033519c7e96c60bf8ff26a4b0325b33` và [bằng chứng Render/HTTP](deployment-evidence.md). Các mã DEP-* khớp nhãn trên [UML deployment diagram](deployment-production.svg).
 
-## 1. Truy vết từng node và container
+## 1. Mỗi node/dịch vụ về kiến trúc và code
 
-| Node / container | Thành phần kiến trúc | Mã nguồn / cấu hình triển khai | Điều được xác minh |
+| Node / dịch vụ | Thành phần kiến trúc | Source / cấu hình truy vết | Bằng chứng thực tế |
 | --- | --- | --- | --- |
-| `DEP-USER` — thiết bị/trình duyệt | Device và Presentation trong [Task 3.1](../../architecture/task3.1-architecture.md) | [layout.tsx](../../../apps/web/src/app/layout.tsx), [app routes](../../../apps/web/src/app) | Trình duyệt tải UI và gọi API. Không cần một container người dùng trong repo. PWA/offline chưa có, trình duyệt đáp ứng nhánh browser của yêu cầu. |
-| `DEP-WEB` — dịch vụ Next.js | Presentation; [ADR 003](../../architecture/adr/003-nextjs-pwa.md) | [Web Dockerfile](../../../apps/web/Dockerfile), [package.json Web](../../../apps/web/package.json), [Web image/deploy job](../../../.github/workflows/cd.yml) | Artifact Web được build từ `apps/web`, start bằng Next.js. Image mặc định PORT 3000; cổng runtime phải theo service thực tế. |
-| `DEP-API` — dịch vụ NestJS | HTTP/API, application/domain; [ADR 002](../../architecture/adr/002-modular-monolith.md) | [API Dockerfile](../../../apps/api/Dockerfile), [main.ts](../../../apps/api/src/main.ts), [app.module.ts](../../../apps/api/src/app.module.ts), [API image/deploy job](../../../.github/workflows/cd.yml) | API đọc `PORT`, source fallback 4000. Orders/Inventory/Payments/Auth là module trong cùng tiến trình. |
-| `DEP-API` — mock payment trong API | Dịch vụ thanh toán logic; [ADR 005](../../architecture/adr/005-payment-modes.md) | [payments.module.ts](../../../apps/api/src/payments/payments.module.ts), [payments.service.ts](../../../apps/api/src/payments/payments.service.ts) | Không có image/container mock payment riêng; code chỉ mở chế độ mock khi cấu hình cho phép. |
-| `DEP-DB` — PostgreSQL và storage | Persistence; [ADR 004](../../architecture/adr/004-postgres-prisma.md) | [schema.prisma](../../../apps/api/prisma/schema.prisma), [Prisma service](../../../apps/api/src/prisma/prisma.service.ts), [migrations](../../../apps/api/prisma/migrations), [DATABASE_URL mẫu](../../../.env.example) | Schema và driver PostgreSQL có trong source. DB production/storage là tài nguyên nền tảng; không có module ứng dụng tự giả lập DB. |
-| `DEP-EDGE` — HTTPS ingress | Vận hành/network boundary; [ADR 006](../../architecture/adr/006-render-deployment.md) | [HTTPS URL gate và deploy job](../../../.github/workflows/cd.yml), [live HTTPS smoke](../../../tests/smoke/production-smoke.mjs), [CORS API](../../../apps/api/src/main.ts) | Ingress/TLS là thành phần Render quản lý, không phải Nginx container đã được định nghĩa trong repo. Hai public origins phải khớp URL Web/API thật. |
-| `DEP-CI` — runner và pipeline | Vận hành / quality gate; [ADR 006](../../architecture/adr/006-render-deployment.md) | [ci.yml](../../../.github/workflows/ci.yml), [cd.yml](../../../.github/workflows/cd.yml), [render-deploy.mjs](../../../scripts/cd/render-deploy.mjs) | Runner build/test và phát hành; không chứa database/app production thường trực. Luồng CD thực tế cần đối chiếu cấu hình service. |
-| `DEP-REG` — GHCR | Artifact repository; [ADR 006](../../architecture/adr/006-render-deployment.md) | [build-push và image URLs](../../../.github/workflows/cd.yml), [kiểm tra image URL](../../../scripts/cd/validation.mjs) | Repo cấu hình hai image `assignment2-api:<SHA>` và `assignment2-web:<SHA>`. Chưa suy ra service live đang pull hai image này. |
-| `DEP-LOCAL` — container `web` | Cùng Presentation với Web production, môi trường local | [Compose service web](../../../compose.yaml), [Web Dockerfile](../../../apps/web/Dockerfile) | Local host 3000, container 3000 theo mặc định; build với API URL dùng trên máy host. |
-| `DEP-LOCAL` — container `api` | Cùng application/domain với API production, môi trường local | [Compose service api](../../../compose.yaml), [API Dockerfile](../../../apps/api/Dockerfile) | Local host/container 4000; kết nối DB qua Docker network, không đi qua public Render API. |
-| `DEP-LOCAL` — container `postgres` / `postgres_data` | Persistence local | [Compose service postgres và volume](../../../compose.yaml) | PostgreSQL 16, container 5432, bind host `127.0.0.1:5433`; named volume local tách DB production. |
+| DEP-USER — thiết bị/browser | Device, Presentation trong [Task 3.1](../../architecture/task3.1-architecture.md) | [layout.tsx](../../../apps/web/src/app/layout.tsx), [Web routes](../../../apps/web/src/app) | Web/menu HTTP 200; browser là thiết bị khách, không phải container cần triển khai trong repo. |
+| DEP-SOURCE — GitHub main | Monorepo; [ADR 001](../../architecture/adr/001-monorepo.md) | [package.json](../../../package.json), [repo workspaces](../../../apps) | Hai service Render cùng trỏ repo Assignment2/main. |
+| DEP-CI — GitHub Actions runner | Quality gate / vận hành; [ADR 006](../../architecture/adr/006-render-deployment.md) | [ci.yml](../../../.github/workflows/ci.yml) | Workflow lint/test/build trên PR/feature; không phải máy production. |
+| DEP-REG — Docker Hub registry | Container base artifacts; ADR 006 | [API Dockerfile](../../../apps/api/Dockerfile), [Web Dockerfile](../../../apps/web/Dockerfile), [Compose](../../../compose.yaml) | Hai Dockerfile FROM node:26-bookworm-slim; local PostgreSQL dùng postgres:16-alpine. |
+| DEP-BUILD — Render Docker build | Build/release, ADR 006 | Hai Dockerfile ở trên, context gốc repo | Metadata runtime docker, source main, đúng Dockerfile, auto-deploy trigger commit. Đây là pipeline được Render quản lý, không phải microservice ứng dụng tự viết. |
+| DEP-WEB — Next.js service | Presentation; [ADR 003](../../architecture/adr/003-nextjs-pwa.md) | [Web Dockerfile](../../../apps/web/Dockerfile), [Web package.json](../../../apps/web/package.json), [app](../../../apps/web/src/app) | Service Web đúng URL; startup/detector log xác nhận port 10000. |
+| DEP-API — NestJS service | HTTP/API và domain; [ADR 002](../../architecture/adr/002-modular-monolith.md) | [API Dockerfile](../../../apps/api/Dockerfile), [main.ts](../../../apps/api/src/main.ts), [app.module.ts](../../../apps/api/src/app.module.ts) | Service API đúng URL/Dockerfile, health path /api/health, port 10000 trong log. |
+| DEP-API — PaymentsModule | Mock payment logic; [ADR 005](../../architecture/adr/005-payment-modes.md) | [payments.module.ts](../../../apps/api/src/payments/payments.module.ts), [payments.service.ts](../../../apps/api/src/payments/payments.service.ts) | Module nằm trong NestJS process; không vẽ container/cổng mock payment bên ngoài. Mode phụ thuộc cấu hình. |
+| DEP-DB — PostgreSQL/storage | Persistence; [ADR 004](../../architecture/adr/004-postgres-prisma.md) | [schema.prisma](../../../apps/api/prisma/schema.prisma), [PrismaService](../../../apps/api/src/prisma/prisma.service.ts), [migrations](../../../apps/api/prisma/migrations), [DATABASE_URL mẫu](../../../.env.example) | Đúng DB ID, PostgreSQL 16/available/Oregon; datasource log là internal host. External ACL được ghi riêng, không giả định DB private-only. |
+| DEP-EDGE — Render HTTPS ingress | Managed network/ingress, ADR 006 | [CORS/main.ts](../../../apps/api/src/main.ts), [live smoke URLs](../../../tests/smoke/production-smoke.mjs), [config Web](../../../apps/web/Dockerfile) | Public HTTPS Web/API hoạt động; CORS khớp frontend. Edge/TLS thuộc Render, không phải một Nginx container trong repo. |
+| DEP-LOCAL — container web | Presentation local | [Compose service web](../../../compose.yaml), Web Dockerfile | Host/container 3000 theo Compose; tách môi trường production. |
+| DEP-LOCAL — container api | Domain/API local | [Compose service api](../../../compose.yaml), API Dockerfile | Host/container 4000; DB qua Docker network. |
+| DEP-LOCAL — postgres / postgres_data | Persistence local | [Compose service postgres và volume](../../../compose.yaml) | PostgreSQL 16, container 5432, host 127.0.0.1:5433; named volume local. |
 
-## 2. Các artifact vận hành trên sơ đồ
+## 2. Artifact vận hành
 
-| Artifact / tính năng | Kiến trúc | Nguồn |
+| Artifact | Kiến trúc | Source / bằng chứng |
 | --- | --- | --- |
-| Secret/env backend và build Web | [ADR 007](../../architecture/adr/007-observability-configuration.md) | [.env.example](../../../.env.example), [main.ts](../../../apps/api/src/main.ts), [auth/access-tokens.ts](../../../apps/api/src/auth/access-tokens.ts), [Web Dockerfile](../../../apps/web/Dockerfile) |
-| Health `/api/health` | Liveness trong Task 3.1 và ADR 007 | [app.controller.ts](../../../apps/api/src/app.controller.ts), [app.service.ts](../../../apps/api/src/app.service.ts), [Compose probe](../../../compose.yaml) |
-| Log tiến trình và CI/CD | Vận hành trong Task 3.1 và ADR 007 | [Nest bootstrap](../../../apps/api/src/main.ts), [Next start command](../../../apps/web/Dockerfile), [workflow](../../../.github/workflows/cd.yml), [deploy polling](../../../scripts/cd/render-deploy.mjs) |
-| Migration | Persistence / phát hành | [db:migrate script](../../../apps/api/package.json), [migrations](../../../apps/api/prisma/migrations), [startup migration local](../../../apps/api/Dockerfile), [pre-deploy gate trong CD](../../../.github/workflows/cd.yml) |
+| Env/secret backend và build Web | [ADR 007](../../architecture/adr/007-observability-configuration.md) | [.env.example](../../../.env.example), [main.ts](../../../apps/api/src/main.ts), [JWT](../../../apps/api/src/auth/access-tokens.ts), Web Dockerfile. Chỉ ghi tên biến. |
+| Health | Liveness / vận hành | [app.controller.ts](../../../apps/api/src/app.controller.ts), [app.service.ts](../../../apps/api/src/app.service.ts); Render API health path và HTTP 200 đã kiểm tra. |
+| Log | Vận hành/ADR 007 | [Nest bootstrap](../../../apps/api/src/main.ts), Web start trong Dockerfile; app/build logs Render đã đọc. |
+| Migration | Persistence/release | [db:migrate script](../../../apps/api/package.json), [migration SQL](../../../apps/api/prisma/migrations), startup command trong API Dockerfile; datasource log đã đọc. |
+| Đường GHCR có trong source | Đường CD khác, không phải hai service live hiện tại | [cd.yml](../../../.github/workflows/cd.yml), [render-deploy.mjs](../../../scripts/cd/render-deploy.mjs). Không ánh xạ nhầm thành luồng pull image production. |
 
-Log tập trung riêng, request logging đầy đủ, DB readiness, backup schedule và service instances production không được coi là đã được triển khai chỉ vì source có Dockerfile/workflow.
+## 3. Đối chiếu từng yêu cầu trong ảnh đề bài
 
-## 3. Đối chiếu tiêu chí trong đề
-
-| Yêu cầu | Vị trí thể hiện | Kết quả kiểm tra source |
+| Yêu cầu | Vị trí thể hiện | Kết quả |
 | --- | --- | --- |
-| Thiết bị chạy browser/PWA | `DEP-USER` | Có browser. PWA cài đặt/offline chưa có; yêu cầu browser/PWA không bắt buộc cả hai. |
-| Dịch vụ/CDN phục vụ Next.js | `DEP-WEB` | Có dịch vụ Next.js. Không thêm CDN độc lập khi repo không định nghĩa. |
-| Container/dịch vụ NestJS API | `DEP-API` | Có. |
-| PostgreSQL có persistent storage | `DEP-DB`; volume local trong `DEP-LOCAL` | Mô hình có. Phải đối chiếu tài nguyên DB/storage production để xác nhận thực tế. |
-| Registry và nền tảng triển khai | `DEP-REG`, Render production boundary | Repo cấu hình GHCR/Render. Cần chứng minh đường deploy service thật tương ứng. |
-| HTTPS, nội bộ và cổng | Các communication paths, bảng cổng trong [thuyết minh](task3.2-deployment.md) | Có HTTPS 443, HTTP PORT, PostgreSQL 5432; cổng local tách riêng. PORT production cần đối chiếu. |
-| Secret/env, health và log | Legend, artifact vận hành và thuyết minh | Có tên biến/probe/log; không chứa giá trị secret. |
-| Ranh giới local/CI/production | Ba frame của sơ đồ | Có. |
-| Mỗi dịch vụ truy về kiến trúc/code | Bảng mục 1 và 2 ở trên | Có; bao gồm cả ba container local và thành phần do nền tảng quản lý. |
-| Phản ánh nền tảng production thực tế | Bằng chứng dịch vụ live | **Chưa xác minh từ repo; chưa đủ để nghiệm thu điều kiện này.** |
+| Thiết bị chạy browser/PWA | DEP-USER | Đạt với browser; không khẳng định có PWA/offline. |
+| Dịch vụ/CDN phục vụ Next.js | DEP-WEB | Đạt bằng Render Web Service; không cần thêm CDN độc lập. |
+| Container/dịch vụ NestJS API | DEP-API | Đạt. |
+| PostgreSQL có persistent storage | DEP-DB; DEP-LOCAL phân biệt volume local | Đạt về mô hình dịch vụ managed/storage; không gán storage vào API. |
+| Registry và nền tảng triển khai | DEP-REG, DEP-BUILD, Render production boundary | Đạt; registry/base image và Git Docker build được truy về Dockerfile/metadata. |
+| HTTPS, kết nối nội bộ và cổng | DEP-EDGE, API→DB và bảng port | Đạt: HTTPS 443, app 10000, internal DB 5432, local ports tách riêng; external DB access cũng được thể hiện. |
+| Secret/env, health check và log | Legend và thuyết minh vận hành | Đạt ở mức mô tả/nguồn/bằng chứng; không chứa secret. |
+| Ranh giới local, CI, production | Các frame UML | Đạt. |
+| Phản ánh nền tảng thực tế | Metadata My Workspace, log và HTTP | Đạt theo snapshot ngày 16/11/2026; không dựa vào workspace Assignment 1 hoặc GHCR mẫu. |
+| Mỗi container/service về kiến trúc và code | Bảng mục 1, mã DEP-* | Đạt; bao gồm cả các thành phần managed của nền tảng và ba container local. |
 
-**Kết luận tại thời điểm đối chiếu source:** các thành phần và quan hệ truy vết đã có; điều kiện phản ánh production thực tế còn cần đối chiếu. Không đánh dấu đạt toàn bộ hoặc coi CI xanh là bằng chứng topology đang chạy.
+**Kết luận:** đủ yêu cầu của deployment diagram và khả năng truy vết trong phạm vi đề đã cung cấp. Kết luận không thay thế nghiệm thu toàn bộ ứng dụng hoặc NFR bảo mật; DB external ACL 0.0.0.0/0 là hiện trạng vận hành còn mở đã ghi rõ trên sơ đồ.

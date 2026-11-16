@@ -1,7 +1,7 @@
 # ADR 006 — Docker, Render và phân tách local/CI/production
 
 - Ngày: 15/11/2026.
-- Trạng thái: Docker/pipeline có trong source; đối chiếu triển khai thật ở Task 3.2.
+- Trạng thái: đối chiếu source và Render thực tế ngày 16/11/2026; chờ nhóm duyệt tài liệu.
 
 ## Bối cảnh
 
@@ -9,9 +9,9 @@ Nhóm cần chạy local và phát hành có thể truy vết, trong khi giảm 
 
 ## Quyết định
 
-Docker Compose chạy local PostgreSQL–API–Web. Nền tảng production được cấu hình trong repo là Render với hai dịch vụ Web/API và PostgreSQL. GitHub Actions CI chạy lint/test/build. Workflow CD được thiết kế build image gắn commit SHA, push GHCR, yêu cầu cấu hình production, deploy API rồi Web và smoke qua HTTPS.
+Docker Compose chạy local PostgreSQL–API–Web. Production thực tế là hai Render Docker Web Services và Render PostgreSQL 16 trong **My Workspace**, region Oregon. Render build hai service từ GitHub Assignment2/main và Dockerfile tương ứng; auto-deploy bật theo commit. Docker Hub cấp base image Node. GitHub Actions CI chạy lint/test/build cho PR/feature.
 
-Sự tồn tại của workflow không chứng minh GHCR hay CD đang được dùng trên dịch vụ thật. Task 3.2 phải ghi nhận source/runtime, registry, region, cổng và migration theo bằng chứng live; cấu hình dự kiến được đánh dấu rõ.
+Source còn có workflow CD build/push GHCR và gọi Render API, nhưng metadata của hai service live là Git/Dockerfile-backed. Đường GHCR này không được vẽ như đang điều khiển deployment hiện tại. [Bằng chứng Task 3.2](../../diagrams/task3.2/deployment-evidence.md) ghi service ID, source, region, port, health và log thực tế.
 
 ## Phương án khác
 
@@ -19,7 +19,7 @@ VPS cho phép kiểm soát hạ tầng nhưng cần tự quản lý TLS, cập n
 
 ## Hệ quả
 
-Image giúp tái lập môi trường và truy vết phiên bản. Render giảm công hạ tầng nhưng có giới hạn gói/chi phí và phụ thuộc nền tảng. Pre-deploy chỉ dùng trên gói hỗ trợ; local volume không phải production DB. Rollback dùng image đã biết, không tự đảo ngược migration.
+Dockerfile giúp tái lập môi trường; Render giảm công hạ tầng nhưng có giới hạn gói và phụ thuộc nền tảng. Các service hiện là Free: không giả định paid pre-deploy đã được cấu hình; API Dockerfile có migration khi startup theo env. Local volume không phải production DB. Database hiện còn external ACL 0.0.0.0/0, đã được ghi đúng trong sơ đồ. Rollback source/image không tự đảo ngược migration. Vì Render theo commit, quy trình nhóm cần kiểm tra CI trước merge main.
 
 ## Bằng chứng
 

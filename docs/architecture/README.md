@@ -22,7 +22,7 @@ Task 3.1 trình bày phương pháp và quyết định kiến trúc; Task 3.2 m
 
 ## Phạm vi bằng chứng
 
-Kiến trúc được lập từ source tại commit `0b427b1e54b249addfd0229c406fd5ad62cb0ef2`; deployment được đối chiếu lại tại `9715b33d079cf47c5be569bc132c19e0f8dea052`, ngày 16/11/2026. Chủ dự án xác nhận nền tảng Render, **My Workspace**, hai URL Web/API và mã PostgreSQL; kiểm tra HTTP công khai đã thành công. Nguồn build/deploy và kết nối DB nội bộ đang chờ đối chiếu vì kết nối Render hiện tại thuộc workspace khác. Tài liệu có bảng truy vết từng node và phân biệt cấu hình source với bằng chứng production.
+Kiến trúc được lập từ source tại commit `0b427b1e54b249addfd0229c406fd5ad62cb0ef2`; deployment được đối chiếu lại với source và hai deploy live tại `fd9211599033519c7e96c60bf8ff26a4b0325b33`, ngày 16/11/2026. Metadata/log xác nhận **Render — My Workspace — Oregon**, hai dịch vụ build từ GitHub main bằng Dockerfile, port runtime 10000 và PostgreSQL 16. Kiểm tra HTTP Web/API đạt. Sơ đồ ghi đúng đường DB nội bộ, external ACL đang mở và phân biệt luồng build thực tế với workflow GHCR còn có trong source. Bảng truy vết ánh xạ từng node về kiến trúc và code.
 
 ## Chỉnh sửa sơ đồ
 

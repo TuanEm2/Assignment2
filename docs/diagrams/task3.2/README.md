@@ -1,15 +1,17 @@
-# Task 3.2 — Deployment diagram
+# Task 3.2 — UML deployment diagram
 
 - [Sơ đồ SVG](deployment-production.svg).
-- [Nguồn UML PlantUML](deployment-production.puml).
-- [Thuyết minh triển khai, giao thức/cổng và cấu hình](task3.2-deployment.md).
-- [Bảng truy vết từng node về kiến trúc/code và đối chiếu tiêu chí](deployment-traceability.md).
-- [Bằng chứng đối chiếu production và giới hạn kiểm tra](deployment-evidence.md).
+- [Nguồn PlantUML](deployment-production.puml).
+- [Thuyết minh production](task3.2-deployment.md).
+- [Truy vết từng node về kiến trúc/code và đối chiếu yêu cầu](deployment-traceability.md).
+- [Bằng chứng Render, log và HTTP](deployment-evidence.md).
 - [Kiến trúc Task 3.1 và ADR](../../architecture/README.md).
 
-Trạng thái kiểm tra ngày 16/11/2026: đủ nhóm thành phần trong mô hình source và đã có bảng truy vết. Điều kiện phản ánh production thực tế chưa được xác minh; không coi bản cấu hình repo là bằng chứng đã triển khai.
+Đã đối chiếu ngày 16/11/2026 với **Render — My Workspace — Oregon**: Web/API build từ Dockerfile trên GitHub `main`, PostgreSQL 16 có storage do Render quản lý. Sơ đồ dùng cổng runtime 10000 đã thấy trong log, thể hiện đường DB nội bộ và external access đang được cho phép.
 
-Kết xuất lại bằng PlantUML:
+Bộ tài liệu đáp ứng các mục của deployment diagram và có bảng truy vết. Điều này không đồng nghĩa toàn bộ NFR, bảo mật production hoặc checkout E2E đã được nghiệm thu.
+
+Kết xuất lại:
 
 ```bash
 java -jar plantuml.jar -charset UTF-8 -tsvg docs/diagrams/task3.2/deployment-production.puml

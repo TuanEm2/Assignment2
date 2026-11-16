@@ -1,112 +1,83 @@
-# Task 3.2 — UML deployment diagram
+# Task 3.2 — UML deployment diagram production
 
-## 1. Phạm vi và căn cứ
+## 1. Nền tảng thực tế và phạm vi
 
-Tài liệu mô tả **cấu hình triển khai trong repository Assignment 2**. Nền tảng đích là Render; source được đối chiếu lại tại commit `9715b33d079cf47c5be569bc132c19e0f8dea052`, ngày 16/11/2026.
+Đối chiếu ngày **16/11/2026** với **My Workspace** trên Render. Web, API và PostgreSQL thuộc cùng workspace, cùng region **Oregon**. Hai dịch vụ Web/API đang dùng **Docker runtime, build từ GitHub nhánh main**; không phải image-backed service pull từ GHCR.
 
-Các URL Web/API production do chủ dự án cung cấp đã được kiểm tra HTTP; xem [bằng chứng production](deployment-evidence.md). Workspace được xác nhận là **My Workspace**. Nguồn build/deploy và kết nối database nội bộ đang chờ đối chiếu; region/gói dịch vụ và trạng thái bật PayOS chưa được xác minh qua Render. `DATABASE_URL` trong sơ đồ chỉ là tên cấu hình, không chứa giá trị bí mật.
+Source đối chiếu: commit `fd9211599033519c7e96c60bf8ff26a4b0325b33`. Render cũng ghi nhận hai deployment live từ commit này tại thời điểm kiểm tra. [Bằng chứng chi tiết](deployment-evidence.md) phân biệt metadata Render, log runtime và kiểm tra HTTP.
 
-![UML deployment diagram — BrewLite](deployment-production.svg)
+![Deployment UML của BrewLite production](deployment-production.svg)
 
-File nguồn: [deployment-production.puml](deployment-production.puml). Sơ đồ dùng UML nodes, execution environments, artifacts, database và communication paths; luồng phát hành được tách bằng nét đứt.
+[Nguồn PlantUML](deployment-production.puml) — [Truy vết node và đối chiếu yêu cầu](deployment-traceability.md) — [Kiến trúc Task 3.1](../../architecture/task3.1-architecture.md).
 
-Các mã node `DEP-*` được ánh xạ sang thành phần kiến trúc, Dockerfile/workflow và code cụ thể trong [bảng truy vết và kiểm tra tiêu chí nghiệm thu](deployment-traceability.md). Bộ sơ đồ và thuyết minh đặt trong `docs/diagrams/task3.2/`; kiến trúc/ADR đặt trong `docs/architecture/`.
+## 2. Thành phần đang sử dụng
 
-## 2. Các node và artifact
+| Thành phần | Cấu hình thực tế |
+| --- | --- |
+| Thiết bị người dùng | Trình duyệt desktop/mobile; frontend có trong `apps/web`. Source chưa có manifest/service worker nên không coi PWA/offline là đã hoàn thiện. |
+| Frontend | Render Web Service **Assignment2 - web**, `srv-dbso1gm7bikc73c0h2r0`, <https://assignment2-web.onrender.com>, Dockerfile `apps/web/Dockerfile`, plan Free, 1 instance. |
+| Backend | Render Web Service **Assignment2**, `srv-dbsnuf1srm7s73dsl390`, <https://assignment2-19nq.onrender.com>, Dockerfile `apps/api/Dockerfile`, plan Free, 1 instance. |
+| Database | Render PostgreSQL **brewlite-ass2-db**, `dpg-dbsmrami0phs73dj58q0-a`, PostgreSQL 16, plan Free, status available. Dữ liệu lưu trong storage của dịch vụ database, tách filesystem của Web/API. |
+| Build và phát hành | Render theo dõi GitHub `TuanEm2/Assignment2`, branch `main`; auto-deploy bật, trigger `commit`; Docker context là gốc repo. |
+| Container registry đang liên quan đến build | Docker Hub cung cấp base image `node:26-bookworm-slim` cho cả hai Dockerfile. Local Compose còn dùng `postgres:16-alpine`. Image ứng dụng được Render build và triển khai. |
+| CI | GitHub Actions chạy lint/test/build và kiểm tra Compose trên PR/feature branches. Runner không chạy app/database production thường trực. |
+| Mock payment | Module logic trong tiến trình NestJS API; không có một container payment riêng. Mode mock/PayOS phụ thuộc env, không suy ra mode đang bật từ `.env.example`. |
 
-| Ranh giới | Node | Artifact / vai trò |
+Frontend được phục vụ bằng Next.js server trên Render Web Service. Không thêm một CDN độc lập hoặc Nginx container vào sơ đồ khi không có bằng chứng chúng được cấu hình.
+
+## 3. Luồng source, build và deploy
+
+1. Developer làm việc ở local, gửi PR; GitHub Actions kiểm tra lint/test/build.
+2. Sau khi commit xuất hiện trên `main`, Render tự deploy hai service theo cấu hình `autoDeployTrigger=commit`.
+3. Render lấy source từ GitHub, build từng service bằng Dockerfile tương ứng và pull base image Node từ Docker Hub qua HTTPS.
+4. Dockerfile Web tạo Next.js build; Dockerfile API sinh Prisma client và build NestJS.
+5. Render chạy image do hệ thống build, cấp HTTPS ingress và chuyển lưu lượng tới cổng ứng dụng.
+6. API dùng Prisma/PostgreSQL; log startup ghi nhận hostname DB nội bộ `dpg-dbsmrami0phs73dj58q0-a`.
+
+**Phân biệt với workflow có trong repo:** `.github/workflows/cd.yml` còn định nghĩa một đường CD qua GHCR và Render API. Hai service live được đọc từ Render là Git/Dockerfile-backed, không cấu hình pull image GHCR. Vì vậy, sơ đồ không vẽ luồng GHCR → production là luồng đang hoạt động. Việc một workflow tồn tại không chứng minh nó kiểm soát production.
+
+Render hiện deploy theo commit, không cấu hình “chờ CI thành công” ở mức service. Quy trình nhóm cần merge PR sau CI đạt; push trực tiếp lên main có thể kích hoạt Render mà không qua quy trình PR.
+
+## 4. Giao thức, cổng và ranh giới mạng
+
+| Kết nối | Giao thức / cổng | Bằng chứng / phạm vi |
 | --- | --- | --- |
-| Người dùng | Laptop/điện thoại | Trình duyệt tải Next.js và gọi API. PWA là định hướng; source chưa có manifest/service worker. |
-| Local | Máy phát triển có Docker Engine/Compose | Chạy `web`, `api`, `postgres`; `.env` và named volume `postgres_data` chỉ thuộc local. |
-| Source | GitHub `TuanEm2/Assignment2` | Source, Dockerfiles, schema/migrations và workflow. |
-| CI/CD | GitHub Actions runner | CI lint/test/build; CD build/push image và gọi Render API khi phát hành. Không chạy ứng dụng production trên runner. |
-| Registry | GHCR | `ghcr.io/tuanem2/assignment2-web:<SHA>` và `ghcr.io/tuanem2/assignment2-api:<SHA>`. |
-| Production | Render Web Service — frontend | Chạy Next.js server từ image Web. Đây là dịch vụ phục vụ Next.js; source không định nghĩa thêm một CDN độc lập. |
-| Production | Render Web Service — API | Chạy NestJS và các module nghiệp vụ, gồm mock payment. |
-| Production | Render PostgreSQL | Lưu dữ liệu bền vững; API dùng kết nối nội bộ. Không dùng volume local Compose cho production. |
-| Production | Render edge / vận hành | HTTPS ingress, health check và thu stdout/stderr; runtime env/secret cấp theo service. |
+| Browser → Web | HTTPS 443 | Web/menu trả HTTP 200 trên `assignment2-web.onrender.com`. |
+| Browser → API | HTTPS 443 | `assignment2-19nq.onrender.com/api/*`; JWT cho route cần xác thực. CORS đã trả đúng Web origin. |
+| Render ingress → Next.js | HTTP **10000** | Log Next.js `localhost:10000` và log Render phát hiện cổng. Không phải public URL `:10000`. |
+| Render ingress → NestJS | HTTP **10000** | Log Render phát hiện cổng 10000; `main.ts` đọc `PORT`. Fallback 4000 trong source không phải cổng live được quan sát. |
+| API → PostgreSQL | PostgreSQL TCP **5432**, hostname nội bộ | Log Prisma datasource ghi hostname ngắn `dpg-dbsmrami0phs73dj58q0-a`; cùng account/region. Không khẳng định SSL mode nội bộ khi chưa đọc cấu hình đó. |
+| Client DB ngoài Render → PostgreSQL | TLS/TCP **5432**, được cấu hình cho phép | `ipAllowList=0.0.0.0/0`; vẫn cần credential hợp lệ. Đây là khả năng truy cập được cho phép, không phải bằng chứng có client ngoài đang kết nối. |
+| Render build → GitHub / Docker Hub | HTTPS **443** | Source Git và các lệnh FROM trong Dockerfile. |
+| Local host → local stack | Web 3000, API 4000, DB host 5433 | Compose bind `127.0.0.1`; PostgreSQL container dùng 5432. |
 
-Backend và frontend là hai **Web Services** theo hợp đồng CD trong repo. API cần public HTTPS vì frontend trên trình duyệt gọi trực tiếp; không mô tả API thành private-only service. PostgreSQL nằm ở phía persistence nội bộ; trình duyệt không kết nối database.
+**Hiện trạng database:** API có đường nội bộ, nhưng database **chưa được khóa external access**: allow list hiện cho phép mọi IPv4 có credential hợp lệ. Sơ đồ thể hiện cả đường nội bộ và khả năng truy cập ngoài. Việc đóng external access là thay đổi vận hành riêng; lần cập nhật tài liệu này không thay đổi ACL.
 
-Mock payment là module trong NestJS, không cần node/container thanh toán bên ngoài. Source có PayOS tùy cấu hình; sơ đồ cơ sở thể hiện mock mode như `.env.example`. Không suy ra chế độ production đã bật từ file mẫu này.
+## 5. Persistent storage và migration
 
-## 3. Giao thức và cổng
+PostgreSQL là dịch vụ managed có storage lưu dữ liệu bền vững, không phải dữ liệu đặt trong container API hay volume Compose của máy phát triển. Không ghi một dung lượng, backup schedule hoặc HA không được metadata xác nhận; database hiện không bật HA.
 
-| Kết nối | Giao thức / cổng | Ghi chú |
+Local Compose dùng named volume `postgres_data`. API local mặc định chạy `npm run db:migrate` khi startup. Dockerfile API có cùng lệnh startup có điều kiện theo `RUN_MIGRATIONS_ON_STARTUP`; log service live có dòng Prisma datasource tới DB nội bộ.
+
+Không mô tả paid pre-deploy migration là bước đang được dùng trên hai service Free. Pre-deploy trong workflow GHCR là một hợp đồng cho đường phát hành khác trong source. Rollback image/source không tự đảo ngược migration hay dữ liệu đã ghi.
+
+## 6. Secret, environment variables, health và log
+
+| Nơi sử dụng | Tên cấu hình | Trách nhiệm |
 | --- | --- | --- |
-| Trình duyệt → frontend public origin | HTTPS 443 | `https://assignment2-web.onrender.com`; đã kiểm tra Web/menu HTTP 200. |
-| Trình duyệt → API public origin | HTTPS 443 | `https://assignment2-19nq.onrender.com`, REST `/api/*`, JWT cho endpoint cần xác thực; health/catalog đã trả 200. |
-| Render edge → Next.js | HTTP `PORT`; mặc định image là 3000 | Cổng bên trong dịch vụ, không phải public URL `:3000`. |
-| Render edge → NestJS | HTTP `PORT`; source fallback 4000 | Render cấp `PORT`; ứng dụng đọc biến này. Cần ghi cổng thực tế khi đối chiếu dịch vụ. |
-| API → PostgreSQL | PostgreSQL protocol TCP 5432, nội bộ | Dùng internal `DATABASE_URL`; thông tin TLS/SSL theo cấu hình database thực tế, chưa xác minh live. |
-| GitHub Actions → GHCR | HTTPS 443 | Push/pull images; quyền `packages: write` chỉ cấp cho bước cần dùng. |
-| GitHub Actions → Render API | HTTPS 443 | `scripts/cd/render-deploy.mjs` gửi yêu cầu deploy và đợi trạng thái. |
-| Render → GHCR | HTTPS 443 | Pull image gắn full commit SHA; cần package public hoặc registry credential phù hợp. |
-| Local host → Web / API / DB | 3000 / 4000 / 5433 | Bind `127.0.0.1` theo Compose; PostgreSQL trong Docker vẫn dùng 5432. |
+| API runtime | `DATABASE_URL`, `JWT_SECRET`, `PORT`, `CORS_ORIGINS`, `PAYMENT_MODE` | Kết nối DB, xác thực, listen port, CORS và mode thanh toán. Chỉ ghi tên biến, không ghi giá trị bí mật. |
+| API nếu bật PayOS | `PAYOS_ENABLED`, `PAYOS_CLIENT_ID`, `PAYOS_API_KEY`, `PAYOS_CHECKSUM_KEY`, `WEB_PUBLIC_URL` | Cổng cấu hình cho tích hợp riêng; không coi nó là một mock-payment container. |
+| Web build | `NEXT_PUBLIC_API_URL`, các public feature flags | Dữ liệu công khai trong bundle; thay đổi cần rebuild. |
+| CD GHCR có trong repo | `RENDER_API_KEY`, service IDs, public URLs | Chỉ liên quan đường CD được định nghĩa trong workflow; không phải bằng chứng cấu hình runtime live. |
 
-Kết nối nội bộ PostgreSQL không đồng nghĩa có chứng nhận đã tắt external access; bước kiểm tra cấu hình database khi triển khai thật cần xác nhận riêng. Không đưa connection string có mật khẩu vào sơ đồ.
+- API có **Health Check Path `/api/health`** trong metadata Render; GET đã trả 200 với contract `status/service/timestamp`. Đây là liveness, không phải kiểm tra DB.
+- Web không cấu hình HTTP health-check path; nền tảng dùng kiểm tra TCP mặc định.
+- GET catalog đã trả JSON 4 sản phẩm, kiểm tra được đường đọc dữ liệu của API ở thời điểm gọi.
+- Log app/build của hai service có thể đọc trên Render; đã dùng log để đối chiếu datasource và cổng 10000. NestJS/Next.js ghi stdout/stderr.
+- Chưa có bằng chứng về hệ thống log tập trung riêng, request ID thống nhất, readiness DB đầy đủ hoặc cảnh báo SLO; không thêm chúng vào sơ đồ như thành phần đã triển khai.
 
-## 4. Luồng local, CI và production
+## 7. Kết quả đối chiếu yêu cầu
 
-### Local
+Bộ sơ đồ thể hiện đủ: browser; Next.js service; NestJS service; PostgreSQL/persistent storage; registry và nền tảng build/deploy; HTTPS/private path/cổng; env/secret/health/log; ranh giới local, CI và production. [Bảng truy vết](deployment-traceability.md) ánh xạ từng node và từng container local tới kiến trúc và source cụ thể.
 
-`compose.yaml` khởi chạy PostgreSQL 16, API và Web. API đợi PostgreSQL healthy, chạy migration lúc khởi động theo mặc định Dockerfile; Web đợi API healthy. `postgres_data` giữ dữ liệu qua việc tạo lại container. `.env` được tạo từ `.env.example` và không commit lên Git.
-
-### CI
-
-`.github/workflows/ci.yml` chạy trên PR vào `main`, push `feature/**`, hoặc chạy thủ công. Pipeline cài dependency, generate/validate Prisma, lint, unit/contract tests, kiểm tra Compose và build cả API/Web. Database URL của CI là placeholder; pipeline hiện tại không chứng minh E2E trên PostgreSQL thật hoặc topology production.
-
-### Production theo workflow CD
-
-1. Tag `v*` hoặc chạy thủ công workflow CD; bước quality gate dùng lại CI.
-2. Kiểm tra release SHA thuộc lịch sử `main`.
-3. Build hai image `linux/amd64`, gắn full commit SHA và push GHCR. Public API URL được nhúng vào Web lúc build.
-4. Bước deploy sử dụng GitHub Environment `production`, kiểm tra các biến/secret và cổng `RENDER_PREDEPLOY_READY`.
-5. Gọi Render deploy API từ image đúng SHA; hợp đồng workflow yêu cầu migration qua pre-deploy đã được cấu hình trước.
-6. Deploy frontend, sau đó chạy live HTTPS smoke test.
-
-Workflow chỉ deploy các service đã tồn tại; không tự tạo database/service. File workflow hiện có chưa phải bằng chứng CD đã chạy thành công hay GitHub Environment đã có required reviewer.
-
-## 5. Migration và persistent storage
-
-Schema/migration nằm trong source và trong image API. Production theo hợp đồng CD cần cấu hình API Pre-Deploy Command `npm run db:migrate`, rồi đặt `RUN_MIGRATIONS_ON_STARTUP=false` để tránh chạy migration lại trong tiến trình app.
-
-Render pre-deploy chỉ khả dụng trên gói dịch vụ hỗ trợ. Nếu chưa có pre-deploy hoặc dùng hình thức deploy khác, phải ghi lại cách chạy migration thực tế và điều chỉnh sơ đồ; không đặt `RENDER_PREDEPLOY_READY=true` chỉ để bỏ qua cổng kiểm tra.
-
-Persistent storage thuộc PostgreSQL; frontend/API không cần persistent disk cho dữ liệu nghiệp vụ hiện tại. Backup/retention/restore không được cấu hình trong repo này, nên không ghi là đã có lịch backup cụ thể. Rollback image giữ nguyên database hiện tại và không tự đảo ngược migration.
-
-## 6. Secrets và environment variables
-
-| Nơi cấp | Tên biến / secret | Phạm vi |
-| --- | --- | --- |
-| GitHub Actions secret | `RENDER_API_KEY` | Cho workflow gọi Render API; không truyền ra frontend. |
-| GitHub Actions token | `GITHUB_TOKEN` | Push GHCR trong workflow, `packages: write`. |
-| GitHub Actions variables | `PRODUCTION_API_URL`, `PRODUCTION_WEB_URL`, `RENDER_API_SERVICE_ID`, `RENDER_WEB_SERVICE_ID`, `RENDER_PREDEPLOY_READY`, `PAYOS_FRONTEND_ENABLED` | Cấu hình release; bảo đảm giá trị thuộc đúng môi trường. |
-| Render API runtime | `DATABASE_URL`, `JWT_SECRET`, `PORT`, `CORS_ORIGINS`, `PAYMENT_MODE`, `RUN_MIGRATIONS_ON_STARTUP` | Secret và config API; dùng internal DB URL. |
-| Render API khi dùng PayOS | `PAYOS_ENABLED`, `PAYOS_CLIENT_ID`, `PAYOS_API_KEY`, `PAYOS_CHECKSUM_KEY`, `WEB_PUBLIC_URL` | Chỉ cấp khi bật tích hợp; sơ đồ không xác nhận đã bật. |
-| Web build | `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_MENU_DATA_SOURCE`, `NEXT_PUBLIC_PRODUCT_DETAIL_ENABLED`, `NEXT_PUBLIC_PAYOS_ENABLED` | Dữ liệu công khai trong bundle; đổi cấu hình phải rebuild. |
-
-Sơ đồ và tài liệu chỉ chứa tên biến; không ghi giá trị secret. Nếu GHCR package private, Render cần quyền pull riêng; token push trong Actions không tự cấp quyền pull cho Render.
-
-## 7. Health check và log
-
-- API: `/api/health`, chỉ liveness; source trả JSON `status: ok`, service và timestamp.
-- Local Compose: PostgreSQL dùng `pg_isready`; API dùng HTTP `/api/health`; Web có dependency vào API healthy. Compose chưa khai báo health check riêng cho Web.
-- Render: cấu hình health check API `/api/health` theo hợp đồng deploy. Path/port đang bật trên service thật chưa được đọc trong phạm vi tài liệu này.
-- Live smoke: kiểm tra HTTPS health, catalog, endpoint cần JWT và nội dung menu; không thay thế toàn bộ E2E checkout.
-- Log: stdout/stderr của Next.js/NestJS và log build/deploy của GitHub Actions/Render. Source chưa có hệ thống log tập trung riêng, request ID thống nhất hay cảnh báo SLO.
-
-## 8. Cách hoàn thiện bản phản ánh production thật
-
-Theo đề bài, deployment diagram cuối cùng cần phản ánh nền tảng thực tế. Trước khi dùng bản này làm bằng chứng production, nhóm cần đối chiếu: hai service đúng Assignment 2; nguồn deploy thực sự là image hay Git/Dockerfile; domain, region, cổng; internal DB và storage; migration command; health path; quyền pull GHCR; cấu hình log/backup. Nếu service đang build trực tiếp từ Git, phải đổi đường phát hành trên sơ đồ cho đúng thay vì coi GHCR/CD là luồng đã hoạt động.
-
-Phần kiểm tra source và HTTP công khai đã hoàn tất. Kết nối Render hiện tại không truy cập được **My Workspace** của Assignment 2; nguồn build/deploy và kết nối DB nội bộ đang chờ xác nhận như ghi trong [bằng chứng production](deployment-evidence.md). Điều kiện phản ánh nền tảng thực tế còn cần hoàn tất hai điểm này. Việc rà soát không triển khai, tạo hoặc sửa tài nguyên Render.
-
-## 9. Nguồn đối chiếu
-
-- `compose.yaml`, `apps/api/Dockerfile`, `apps/web/Dockerfile`.
-- `.github/workflows/ci.yml`, `.github/workflows/cd.yml`.
-- `scripts/cd/render-deploy.mjs`, `scripts/cd/validation.mjs`.
-- `apps/api/src/main.ts`, `app.controller.ts`, `app.service.ts`.
-- `.env.example`, `tests/smoke/production-smoke.mjs`.
-- Tài liệu Render đã đọc ngày 15/11/2026: <https://render.com/docs/deploys.md>, <https://render.com/docs/health-checks.md>.
+Deployment đã được đối chiếu với nền tảng thật thay vì chỉ suy ra từ Docker Compose/CD mẫu. Kết luận này áp dụng cho **nội dung deployment diagram và khả năng truy vết**, không xác nhận toàn bộ NFR, bảo mật, tải chịu đựng hay E2E của ứng dụng. External DB access ở mục 4 là một điểm vận hành còn mở cần nhóm theo dõi.

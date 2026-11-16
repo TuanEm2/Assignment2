@@ -1,69 +1,76 @@
 @startuml
-title BrewLite — Task 3.2: UML deployment diagram\nCấu hình repo · trạng thái live chưa xác minh
+title BrewLite — Task 3.2: Production deployment UML\nRender · My Workspace · Oregon · đối chiếu 16/11/2026
 top to bottom direction
 skinparam defaultFontName DejaVu Sans
 skinparam defaultFontSize 13
 skinparam shadowing false
-skinparam nodesep 30
-skinparam ranksep 35
+skinparam nodesep 28
+skinparam ranksep 38
 skinparam ArrowColor #365569
 skinparam nodeBorderColor #587387
 skinparam packageBorderColor #587387
 
 frame "LOCAL · máy phát triển" as Local #F2F6FA {
-  node "[DEP-LOCAL] Docker Engine / Compose" as Docker <<executionEnvironment>> {
-    artifact "Web :3000 · API :4000\nPostgreSQL :5432 (host :5433)\npostgres_data: volume bền vững local\n.env từ .env.example" as LocalStack
+  node "[DEP-LOCAL] Docker Compose" as Docker <<executionEnvironment>> {
+    artifact "web :3000 · api :4000\npostgres :5432 (host 127.0.0.1:5433)\npostgres_data: persistent local volume" as LocalStack
   }
 }
-
-frame "CI / RELEASE · GitHub" as CICD #F3F7EE {
-  node "[DEP-CI] TuanEm2/Assignment2\nGitHub Actions runner" as Runner <<executionEnvironment>> {
-    artifact "ci.yml: lint / test / build\ncd.yml: quality gate → image SHA\n→ deploy API / Web → smoke HTTPS" as Workflow
+frame "SOURCE / CI · GitHub" as CICD #F3F7EE {
+  node "[DEP-SOURCE] TuanEm2/Assignment2" as Source {
+    artifact "main · Docker context gốc repo\napps/web/Dockerfile\napps/api/Dockerfile" as Code
   }
-  node "[DEP-REG] GHCR · container registry" as Registry {
-    artifact "ghcr.io/tuanem2/\nassignment2-api:<SHA>\nassignment2-web:<SHA>" as Images
+  node "[DEP-CI] GitHub Actions runner" as Runner <<executionEnvironment>> {
+    artifact "ci.yml · PR / feature/**\nLint · Test · Build · Compose check" as CI
   }
-  Runner ..> Registry : push images\nHTTPS 443
+  Source ..> Runner : PR / feature push
 }
-
-node "[DEP-USER] Thiết bị người dùng" as Device {
+cloud "[DEP-REG] Docker Hub" as Registry {
+  artifact "node:26-bookworm-slim\npostgres:16-alpine (local)" as BaseImages
+}
+node "[DEP-USER] Thiết bị khách hàng" as Device {
   node "Trình duyệt desktop / mobile" as Browser <<executionEnvironment>> {
-    artifact "UI BrewLite\nPWA: chưa cấu hình" as UI
+    artifact "UI BrewLite\nPWA/offline chưa cấu hình" as UI
   }
 }
-
-frame "PRODUCTION · Render · theo cấu hình repo" as Production #EDF5FA {
-  node "[DEP-EDGE] Render edge / TLS\nPublic Web / API origins" as Edge <<executionEnvironment>>
-  node "[DEP-WEB] Web Service · frontend" as Web <<executionEnvironment>> {
-    artifact "Next.js / Node.js\nassignment2-web:<SHA>\nPORT: image mặc định 3000" as Next
+frame "PRODUCTION · Render / My Workspace / Oregon" as Production #EDF5FA {
+  node "[DEP-BUILD] Render Docker build\nTheo từng service" as Builder <<executionEnvironment>> {
+    artifact "Build từ GitHub main\nNext.js build / NestJS dist\nImage do Render build và triển khai" as Built
   }
-  node "[DEP-API] Web Service · API" as API <<executionEnvironment>> {
-    artifact "NestJS / Node.js\nassignment2-api:<SHA>\nPORT: source fallback 4000\nMock payment trong PaymentsModule" as Nest
+  node "[DEP-EDGE] Render TLS ingress" as Edge <<executionEnvironment>>
+  node "[DEP-WEB] Assignment2 - web\nassignment2-web.onrender.com" as Web <<executionEnvironment>> {
+    artifact "Next.js / Node.js\nPORT=10000 · 1 instance / Free" as Next
   }
-  node "[DEP-DB] Managed PostgreSQL" as DBService <<executionEnvironment>> {
-    database "BrewLite · TCP 5432\nPersistent database storage" as DB
+  node "[DEP-API] Assignment2\nassignment2-19nq.onrender.com" as API <<executionEnvironment>> {
+    artifact "NestJS / Node.js\nPORT=10000 · 1 instance / Free\nPaymentsModule trong API" as Nest
   }
-  Edge --> Web : HTTP :PORT
-  Edge --> API : HTTP :PORT
-  API --> DB : PostgreSQL TCP 5432\nInternal DATABASE_URL
+  node "[DEP-DB] brewlite-ass2-db" as DBService <<managedPostgres>> {
+    database "PostgreSQL 16 · TCP 5432\nPersistent database storage" as DB
+  }
+  Builder ..> Web : build / deploy\napps/web/Dockerfile
+  Builder ..> API : build / deploy\napps/api/Dockerfile
+  Edge --> Web : HTTP 10000
+  Edge --> API : HTTP 10000
+  API --> DB : PostgreSQL TCP 5432\nInternal hostname\ncùng workspace / region
   Web -[hidden]right-> API
 }
+actor "Client DB bên ngoài\n(khả năng được phép)" as External
 
-Local -[hidden]right-> CICD
-Browser --> Edge : HTTPS 443\nTải UI và gọi REST /api/*
-Runner ..> Production : Render API · HTTPS 443\nDeploy đúng SHA, API trước Web
-Registry ..> Web : Render pull image\nHTTPS 443
-Registry ..> API : Render pull image\nHTTPS 443
+Browser --> Edge : HTTPS 443\nWeb UI + API /api/*
+Source ..> Builder : Render auto-deploy khi main có commit\nCheckout source · HTTPS 443
+Registry ..> Builder : Pull Node base image\nHTTPS 443
+Registry ..> Docker : Pull base images\nHTTPS 443
+External ..> DB : TLS / TCP 5432\nExternal ACL 0.0.0.0/0\nVẫn cần credential hợp lệ
 
 legend bottom
-  |= Hạng mục |= Cấu hình trong repo |
-  | Runtime API | DATABASE_URL · JWT_SECRET · CORS_ORIGINS · PAYMENT_MODE |
-  | Build Web | NEXT_PUBLIC_API_URL: public HTTPS API, cần rebuild khi đổi |
-  | Release | RENDER_API_KEY, service IDs; pre-deploy API: npm run db:migrate* |
-  | Health / log | /api/health: liveness; stdout/stderr, GitHub/Render deploy logs |
-  | Ranh giới | Local volume và CI runner tách biệt PostgreSQL production |
-  | Bằng chứng | Chưa xác minh domain, region, PORT, plan hoặc trạng thái live |
-  | Ký hiệu | Nét liền: runtime; nét đứt: build/deploy; node + artifact: UML |
+  |= Hạng mục |= Hiện trạng / nguồn |
+  | Runtime config | DATABASE_URL · JWT_SECRET · PORT · CORS_ORIGINS · PAYMENT_MODE |
+  | Public Web build | NEXT_PUBLIC_API_URL và public feature flags; cần rebuild khi đổi |
+  | Health / log | API /api/health: liveness; Web TCP; app/build logs trên Render |
+  | Migration | Startup command trong API Dockerfile; không giả định paid pre-deploy |
+  | CD trong repo | Có workflow GHCR, nhưng hai service live build từ Git/Dockerfile |
+  | Ranh giới | Local volume, CI runner, production DB là các môi trường khác nhau |
+  | External DB | ACL hiện cho mọi IPv4 có credential; DB chưa private-only |
+  | Truy vết | Mã DEP-* → deployment-traceability.md → kiến trúc / code |
 endlegend
-caption * Pre-deploy cần cấu hình và gói Render hỗ trợ.\nAssignment2 @ 9715b33 · kiểm tra 16/11/2026 · nguồn: Compose, Dockerfiles, CI/CD, env example
+caption Metadata Render + runtime logs + HTTP checks · source fd92115 · 16/11/2026\nNét liền: runtime; nét đứt: build/deploy hoặc đường external được cho phép
 @enduml
