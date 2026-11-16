@@ -66,7 +66,7 @@ jobs:
           if ! git merge-base --is-ancestor "$version" origin/main; then
             echo "::error::Release SHA must be reachable from origin/main"; exit 1
           fi
-          if [ "$op" = "release" ] && [ "$GITHUB_REF" != "refs/heads/main" ] &&
+          if [ "$op" = "rollback" ] && [ "$GITHUB_REF" != "refs/heads/main" ] &&
              [[ "$GITHUB_REF" != refs/tags/v* ]]; then
             echo "::error::Release only from main or a v* tag"; exit 1
           fi
@@ -76,7 +76,7 @@ jobs:
 
   images:
     name: Build immutable Docker images and push GHCR
-    needs: prepare
+    needs: [quality, prepare]
     if: needs.prepare.outputs.operation == 'release'
     runs-on: ubuntu-latest
     steps:
