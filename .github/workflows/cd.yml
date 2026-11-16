@@ -1,21 +1,25 @@
+
 name: BrewLite CD - GHCR to Render
 
 on:
   push:
     tags:
       - 'v*'
+
   workflow_dispatch:
     inputs:
       operation:
-        description: 'Release current main revision or redeploy an older SHA to roll back'
+        description: 'Choose CD operation'
         required: true
-        default: release
+        default: publish_only
         type: choice
         options:
+          - publish_only
           - release
           - rollback
+
       rollback_sha:
-        description: 'Full 40-character Git SHA of the previously working release (rollback only)'
+        description: 'Full 40-character commit SHA for rollback'
         required: false
         type: string
 
@@ -28,75 +32,141 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+
+  # ==========================================
+  # JOB 1: CI QUALITY GATE
+  # ==========================================
+
   quality:
     name: Quality gate
     uses: ./.github/workflows/ci.yml
 
+  # ==========================================
+  # JOB 2: VERIFY RELEASE / ROLLBACK
+  # ==========================================
+
   prepare:
-    name: Verify release / rollback ref
+    name: Verify release or rollback SHA
     needs: quality
     runs-on: ubuntu-latest
+
     outputs:
       owner: ${{ steps.release.outputs.owner }}
       version: ${{ steps.release.outputs.version }}
       operation: ${{ steps.release.outputs.operation }}
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout source
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - id: release
-        name: Require commit in main and immutable SHA
+
+      - name: Verify operation and commit
+        id: release
+        shell: bash
+
         env:
           OPERATION: ${{ inputs.operation }}
           ROLLBACK_SHA: ${{ inputs.rollback_sha }}
-        shell: bash
+
         run: |
           set -euo pipefail
+
           op="${OPERATION:-release}"
           version="$GITHUB_SHA"
-          if [ "$op" = "rollback" ]; then
-            version="$ROLLBACK_SHA"
-          elif [ "$op" != "release" ]; then
-            echo "::error::Unknown operation"; exit 1
+
+          # Only allow manual CD from main.
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]] &&
+             [[ "$GITHUB_REF" != "refs/heads/main" ]]; then
+            echo "::error::Manual CD must run from main."
+            exit 1
           fi
-          if [[ ! "$version" =~ ^[0-9a-f]{40}$ ]]; then
-            echo "::error::A full immutable commit SHA is required"; exit 1
-          fi
-          git fetch origin main
-          if ! git merge-base --is-ancestor "$version" origin/main; then
-            echo "::error::Release SHA must be reachable from origin/main"; exit 1
-          fi
-          if [ "$op" = "rollback" ] && [ "$GITHUB_REF" != "refs/heads/main" ] &&
+
+          # Tag-triggered runs must use a release tag.
+          if [[ "$GITHUB_EVENT_NAME" == "push" ]] &&
              [[ "$GITHUB_REF" != refs/tags/v* ]]; then
-            echo "::error::Release only from main or a v* tag"; exit 1
+            echo "::error::Invalid release tag."
+            exit 1
           fi
+
+          case "$op" in
+            publish_only)
+              echo "Publishing Docker images only."
+              ;;
+            release)
+              echo "Publishing and deploying release."
+              ;;
+            rollback)
+              version="$ROLLBACK_SHA"
+              echo "Rolling back to an earlier commit."
+              ;;
+            *)
+              echo "::error::Unknown CD operation."
+              exit 1
+              ;;
+          esac
+
+          # Require a full immutable commit SHA.
+          if [[ ! "$version" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::A full 40-character SHA is required."
+            exit 1
+          fi
+
+          # Only release commits reachable from main.
+          git fetch origin main
+
+          if ! git merge-base --is-ancestor \
+              "$version" origin/main; then
+            echo "::error::Commit is not reachable from main."
+            exit 1
+          fi
+
           echo "owner=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "operation=$op" >> "$GITHUB_OUTPUT"
 
+  # ==========================================
+  # JOB 3: BUILD AND PUSH DOCKER IMAGES
+  # ==========================================
+
   images:
-    name: Build immutable Docker images and push GHCR
+    name: Build Docker images and push GHCR
+
     needs: [quality, prepare]
-    if: needs.prepare.outputs.operation == 'release'
+
+    if: needs.prepare.outputs.operation != 'rollback'
+
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
-      - name: Require public production API URL for Next.js build
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Validate production API URL
+        shell: bash
         env:
           PRODUCTION_API_URL: ${{ vars.PRODUCTION_API_URL }}
-        shell: bash
         run: |
           set -euo pipefail
+
           if [[ ! "$PRODUCTION_API_URL" =~ ^https://[^/]+/?$ ]]; then
-            echo "::error::Configure PRODUCTION_API_URL in repository Actions variables"; exit 1
+            echo "::error::Invalid PRODUCTION_API_URL."
+            exit 1
           fi
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: API image
+
+      # Backend image
+
+      - name: Build and push NestJS API
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -104,70 +174,153 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: ghcr.io/${{ needs.prepare.outputs.owner }}/assignment2-api:${{ needs.prepare.outputs.version }}
-      - name: Next.js image (public URL fixed at build time)
+
+      # Frontend image
+
+      - name: Build and push Next.js Web
         uses: docker/build-push-action@v6
         with:
           context: .
           file: apps/web/Dockerfile
           platforms: linux/amd64
           push: true
+
           tags: ghcr.io/${{ needs.prepare.outputs.owner }}/assignment2-web:${{ needs.prepare.outputs.version }}
+
           build-args: |
             NEXT_PUBLIC_API_URL=${{ vars.PRODUCTION_API_URL }}
             NEXT_PUBLIC_MENU_DATA_SOURCE=api
             NEXT_PUBLIC_PRODUCT_DETAIL_ENABLED=true
             NEXT_PUBLIC_PAYOS_ENABLED=${{ vars.PAYOS_FRONTEND_ENABLED }}
 
+      - name: Publish image information
+        shell: bash
+        env:
+          OWNER: ${{ needs.prepare.outputs.owner }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          echo "### Published Docker images" >> "$GITHUB_STEP_SUMMARY"
+
+          echo "API: ghcr.io/$OWNER/assignment2-api:$VERSION" >> "$GITHUB_STEP_SUMMARY"
+
+          echo "Web: ghcr.io/$OWNER/assignment2-web:$VERSION" >> "$GITHUB_STEP_SUMMARY"
+
+  # ==========================================
+  # JOB 4: DEPLOY TO RENDER
+  # ==========================================
+
   deploy:
-    name: Protected Render deploy, migration and live smoke
+    name: Render deployment and production smoke test
+
     needs: [quality, prepare, images]
-    if: always() && needs.quality.result == 'success' && needs.prepare.result == 'success' && (needs.images.result == 'success' || needs.images.result == 'skipped')
+
+    if: >-
+      ${{
+        always() &&
+        needs.quality.result == 'success' &&
+        needs.prepare.result == 'success' &&
+        needs.prepare.outputs.operation != 'publish_only' &&
+        (
+          needs.images.result == 'success' ||
+          (
+            needs.prepare.outputs.operation == 'rollback' &&
+            needs.images.result == 'skipped'
+          )
+        )
+      }}
+
     runs-on: ubuntu-latest
     timeout-minutes: 40
+
     environment: production
+
     steps:
-      - uses: actions/checkout@v4
-      - name: Verify production is provisioned and migrations are preconfigured
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '26'
+
+      # Verify required secrets and variables.
+
+      - name: Verify Render configuration
         shell: bash
+
         env:
           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
           RENDER_API_SERVICE_ID: ${{ vars.RENDER_API_SERVICE_ID }}
           RENDER_WEB_SERVICE_ID: ${{ vars.RENDER_WEB_SERVICE_ID }}
           PRODUCTION_API_URL: ${{ vars.PRODUCTION_API_URL }}
           PRODUCTION_WEB_URL: ${{ vars.PRODUCTION_WEB_URL }}
-          RENDER_PREDEPLOY_READY: ${{ vars.RENDER_PREDEPLOY_READY }}
+
         run: |
           set -euo pipefail
-          for name in RENDER_API_KEY RENDER_API_SERVICE_ID RENDER_WEB_SERVICE_ID PRODUCTION_API_URL PRODUCTION_WEB_URL; do
-            if [ -z "${!name}" ]; then echo "::error::Missing configuration: $name"; exit 1; fi
+
+          for name in \
+            RENDER_API_KEY \
+            RENDER_API_SERVICE_ID \
+            RENDER_WEB_SERVICE_ID \
+            PRODUCTION_API_URL \
+            PRODUCTION_WEB_URL
+          do
+            if [ -z "${!name}" ]; then
+              echo "::error::Missing configuration: $name"
+              exit 1
+            fi
           done
-          if [ "$RENDER_PREDEPLOY_READY" != "true" ]; then
-            echo "::error::Configure API Render Pre-Deploy migration and set RENDER_PREDEPLOY_READY=true"; exit 1
-          fi
-      - name: Deploy API (Render pre-deploy runs prisma migrate deploy)
+
+          echo "Required Render configuration is present."
+
+      # Deploy the API first.
+      # On Render Free, the existing API Dockerfile
+      # can run Prisma migrations during startup.
+      # RUN_MIGRATIONS_ON_STARTUP must be true.
+      # Migrations must be backward-compatible.
+
+      - name: Deploy NestJS API
         env:
           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
           RENDER_SERVICE_ID: ${{ vars.RENDER_API_SERVICE_ID }}
           IMAGE_URL: ghcr.io/${{ needs.prepare.outputs.owner }}/assignment2-api:${{ needs.prepare.outputs.version }}
+
         run: node scripts/cd/render-deploy.mjs
-      - name: Deploy Frontend
+
+      # Deploy the frontend after the API is live.
+
+      - name: Deploy Next.js Web
         env:
           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
           RENDER_SERVICE_ID: ${{ vars.RENDER_WEB_SERVICE_ID }}
           IMAGE_URL: ghcr.io/${{ needs.prepare.outputs.owner }}/assignment2-web:${{ needs.prepare.outputs.version }}
+
         run: node scripts/cd/render-deploy.mjs
-      - name: Smoke test live HTTPS sites
+
+      # Health checks after deployment.
+
+      - name: Production smoke test
         env:
           API_BASE_URL: ${{ vars.PRODUCTION_API_URL }}
           WEB_BASE_URL: ${{ vars.PRODUCTION_WEB_URL }}
+
         run: npm run test:smoke:live
-      - name: Publish release summary
+
+      # Save GitHub Actions release evidence.
+
+      - name: Publish deployment summary
         if: success()
+        shell: bash
+
         env:
           VERSION: ${{ needs.prepare.outputs.version }}
           OPERATION: ${{ needs.prepare.outputs.operation }}
-        shell: bash
+
         run: |
-          echo "### BrewLite $OPERATION successful" >> "$GITHUB_STEP_SUMMARY"
-          echo "Version: \`$VERSION\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "Both Render services are live and production smoke passed." >> "$GITHUB_STEP_SUMMARY"
+          echo "### BrewLite deployment successful" >> "$GITHUB_STEP_SUMMARY"
+
+          echo "Operation: $OPERATION" >> "$GITHUB_STEP_SUMMARY"
+
+          echo "Commit: $VERSION" >> "$GITHUB_STEP_SUMMARY"
+
+          echo "API, Web and production smoke test completed." >> "$GITHUB_STEP_SUMMARY"
